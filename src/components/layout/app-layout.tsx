@@ -6,13 +6,17 @@ type AppLayoutProps = {
   children: ReactNode;
 };
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({
+  children,
+}: AppLayoutProps) {
   return (
-    <div className="flex min-h-screen bg-muted/20">
+    <div className="min-h-screen bg-background text-foreground">
       <AppSidebar />
 
-      <main className="min-w-0 flex-1 p-8">
-        {children}
+      <main className="min-h-screen md:pl-64">
+        <div className="mx-auto w-full max-w-[1600px] px-5 py-6 md:px-8 md:py-8">
+          {children}
+        </div>
       </main>
     </div>
   );

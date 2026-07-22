@@ -51,16 +51,15 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-background p-4">
-      <div className="mb-8 px-3">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          Personal Finance
-        </p>
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">      <div className="mb-8 px-3">
+      <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        Personal Finance
+      </p>
 
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          Masroufi
-        </h1>
-      </div>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+        Masroufi
+      </h1>
+    </div>
 
       <nav className="flex flex-1 flex-col gap-1">
         {navigationItems.map((item) => {
@@ -74,9 +73,8 @@ export function AppSidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground")}
             >
               <Icon className="size-4" />
               <span>{item.label}</span>
