@@ -14,7 +14,7 @@ export function AppLayout({
       <AppSidebar />
 
       <main className="min-h-screen md:pl-64">
-        <div className="mx-auto w-full max-w-[1600px] px-5 py-6 md:px-8 md:py-8">
+        <div className="mx-auto w-full max-w-7xl px-5 py-8 md:px-8">
           {children}
         </div>
       </main>
