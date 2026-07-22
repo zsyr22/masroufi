@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react";
 
+import { LogoutButton } from "@/features/auth/components/logout-button";
 import { cn } from "@/lib/utils";
 
 const navigationItems = [
@@ -95,6 +96,8 @@ export function AppSidebar() {
         <Settings className="size-4" />
         <span>Settings</span>
       </Link>
+      <LogoutButton />
+
     </aside>
   );
 }
