@@ -18,6 +18,7 @@ import {
 import { getCurrentUserTransactions } from "@/features/transactions/services/transaction-service";
 import { cn } from "@/lib/utils";
 import { formatTransactionDate } from "@/features/transactions/utils/transaction-summary";
+import { DeleteTransactionButton } from "@/features/transactions/components/delete-transaction-button";
 
 function formatAmount(
   amount: number,
@@ -115,28 +116,39 @@ export default async function TransactionsPage() {
                     </div>
                   </div>
 
-                  <div className="shrink-0 text-right">
-                    <p
-                      className={cn(
-                        "text-sm font-semibold",
-                        isIncome
-                          ? "text-primary"
-                          : "text-foreground"
-                      )}
-                    >
-                      {formatAmount(
-                        transaction.amount,
-                        transaction.currency,
-                        transaction.type
-                      )}
-                    </p>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="text-right">
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          isIncome
+                            ? "text-primary"
+                            : "text-foreground"
+                        )}
+                      >
+                        {formatAmount(
+                          transaction.amount,
+                          transaction.currency,
+                          transaction.type
+                        )}
+                      </p>
 
-                    <Badge
-                      variant="secondary"
-                      className="mt-1 capitalize"
-                    >
-                      {transaction.type}
-                    </Badge>
+                      <Badge
+                        variant="secondary"
+                        className="mt-1 capitalize"
+                      >
+                        {transaction.type}
+                      </Badge>
+                    </div>
+
+                    <DeleteTransactionButton
+                      transactionId={transaction.id}
+                      transactionName={
+                        transaction.payees?.name ??
+                        transaction.categories?.name ??
+                        "Transaction"
+                      }
+                    />
                   </div>
                 </div>
               );

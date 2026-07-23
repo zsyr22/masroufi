@@ -30,6 +30,8 @@ import {
   formatTransactionDate,
 } from "@/features/transactions/utils/transaction-summary";
 import { cn } from "@/lib/utils";
+import { DeleteTransactionButton } from "@/features/transactions/components/delete-transaction-button";
+
 
 export default async function DashboardPage() {
 
@@ -179,20 +181,31 @@ export default async function DashboardPage() {
                         </div>
                       </div>
 
-                      <p
-                        className={cn(
-                          "shrink-0 text-sm font-semibold",
-                          isIncome
-                            ? "text-primary"
-                            : "text-foreground"
-                        )}
-                      >
-                        {isIncome ? "+" : "-"}
-                        {formatMoney(
-                          Number(transaction.amount),
-                          transaction.currency
-                        )}
-                      </p>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            isIncome
+                              ? "text-primary"
+                              : "text-foreground"
+                          )}
+                        >
+                          {isIncome ? "+" : "-"}
+                          {formatMoney(
+                            Number(transaction.amount),
+                            transaction.currency
+                          )}
+                        </p>
+
+                        <DeleteTransactionButton
+                          transactionId={transaction.id}
+                          transactionName={
+                            transaction.payees?.name ??
+                            transaction.categories?.name ??
+                            "Transaction"
+                          }
+                        />
+                      </div>
                     </div>
                   );
                 })}

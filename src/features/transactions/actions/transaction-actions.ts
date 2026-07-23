@@ -159,3 +159,62 @@ export async function createTransaction(
         message: "Transaction added successfully.",
     };
 }
+
+export type DeleteTransactionState = {
+    success?: boolean;
+    message?: string;
+};
+
+export async function deleteTransaction(
+    transactionId: string
+): Promise<DeleteTransactionState> {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return {
+            message: "Your session expired. Please sign in again.",
+        };
+    }
+
+    const { data: transaction, error: transactionError } =
+        await supabase
+            .from("transactions")
+            .select("id")
+            .eq("id", transactionId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+    if (transactionError || !transaction) {
+        return {
+            message: "The transaction could not be found.",
+        };
+    }
+
+    const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", transactionId)
+        .eq("user_id", user.id);
+
+    if (error) {
+        console.error("Delete transaction error:", error);
+
+        return {
+            message: "The transaction could not be deleted.",
+        };
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/accounts");
+    revalidatePath("/dashboard");
+
+    return {
+        success: true,
+        message: "Transaction deleted successfully.",
+    };
+}
