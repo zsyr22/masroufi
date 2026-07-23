@@ -1,10 +1,9 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Landmark,
   PiggyBank,
   Plus,
-  Repeat2,
+  ReceiptText,
   Users,
   Wallet,
 } from "lucide-react";
@@ -18,39 +17,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getCurrentUserAccounts } from "@/features/accounts/services/account-service";
+import {
+  calculateAccountSummary,
+  formatMoney,
+} from "@/features/accounts/utils/account-summary";
 
-const recentTransactions = [
-  {
-    id: 1,
-    name: "Kaspersky",
-    category: "Subscriptions",
-    amount: "-123 AED",
-    date: "21 Jul 2026",
-  },
-  {
-    id: 2,
-    name: "ENOC",
-    category: "Fuel",
-    amount: "-180 AED",
-    date: "20 Jul 2026",
-  },
-  {
-    id: 3,
-    name: "Salary",
-    category: "Income",
-    amount: "+7,000 AED",
-    date: "01 Jul 2026",
-  },
-];
+export default async function DashboardPage() {
+  const accounts = await getCurrentUserAccounts();
+  const summary = calculateAccountSummary(accounts);
 
-export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <PageHeader
         title="Dashboard"
-        description="Track your money, expenses, savings, and personal balances."
+        description="A clear overview of your money and recent financial activity."
         action={
-          <Button>
+          <Button disabled>
             <Plus className="size-4" />
             Add transaction
           </Button>
@@ -60,31 +43,37 @@ export default function DashboardPage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Available money"
-          value="4,800 AED"
-          description="Across active accounts"
+          value={formatMoney(summary.available.AED, "AED")}
+          description={`${formatMoney(
+            summary.available.USD,
+            "USD"
+          )} also available`}
           icon={Wallet}
         />
 
         <StatCard
           title="Savings"
-          value="10,000 AED"
-          description="Plus 3,000 USD"
+          value={formatMoney(summary.savings.AED, "AED")}
+          description={`${formatMoney(
+            summary.savings.USD,
+            "USD"
+          )} saved`}
           icon={PiggyBank}
           tone="success"
         />
 
         <StatCard
           title="This month income"
-          value="7,000 AED"
-          description="Salary and other income"
+          value="0.00 AED"
+          description="Transactions are not added yet"
           icon={ArrowDownLeft}
           tone="success"
         />
 
         <StatCard
           title="This month expenses"
-          value="2,150 AED"
-          description="31% of monthly income"
+          value="0.00 AED"
+          description="Transactions are not added yet"
           icon={ArrowUpRight}
           tone="danger"
         />
@@ -98,100 +87,40 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-1">
-            {recentTransactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-muted/50"
-              >
-                <div>
-                  <p className="text-sm font-medium">
-                    {transaction.name}
-                  </p>
+          <CardContent className="flex min-h-72 flex-col items-center justify-center text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+              <ReceiptText className="size-5" />
+            </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    {transaction.category} · {transaction.date}
-                  </p>
-                </div>
+            <h2 className="mt-4 text-sm font-semibold">
+              No transactions yet
+            </h2>
 
-                <p className="text-sm font-medium">
-                  {transaction.amount}
-                </p>
-              </div>
-            ))}
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+              Once you add income or expenses, your latest transactions
+              will appear here.
+            </p>
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="size-4 text-primary" />
-                People balances
-              </CardTitle>
-            </CardHeader>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="size-4 text-primary" />
+              People balances
+            </CardTitle>
+          </CardHeader>
 
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  People owe me
-                </span>
+          <CardContent className="flex min-h-48 flex-col items-center justify-center text-center">
+            <p className="text-sm font-medium">
+              No balances with people
+            </p>
 
-                <span className="text-sm font-semibold text-emerald-500">
-                  260 AED
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  I owe people
-                </span>
-
-                <span className="text-sm font-semibold text-destructive">
-                  180 AED
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Repeat2 className="size-4 text-primary" />
-                Next subscription
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <p className="text-sm font-medium">
-                Kaspersky
-              </p>
-
-              <p className="mt-1 text-xs text-muted-foreground">
-                123 AED · Renews 21 Jul 2027
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Landmark className="size-4 text-primary" />
-                Main account
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <p className="text-lg font-semibold">
-                Emirates NBD
-              </p>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                4,500 AED available
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Money owed to you or owed by you will appear here.
+            </p>
+          </CardContent>
+        </Card>
       </section>
     </div>
   );
