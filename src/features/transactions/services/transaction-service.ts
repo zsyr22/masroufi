@@ -57,3 +57,56 @@ export async function getCurrentUserTransactions(): Promise<
 
     return (data ?? []) as TransactionListItem[];
 }
+export async function getCurrentUserTransactionById(
+    transactionId: string
+) {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from("transactions")
+        .select(`
+      id,
+      type,
+      amount,
+      currency,
+      transaction_date,
+      notes,
+      account_id,
+      category_id,
+      payee_id,
+      accounts (
+        id,
+        name,
+        currency
+      ),
+      categories (
+        id,
+        name,
+        transaction_type
+      ),
+      payees (
+        id,
+        name,
+        type
+      )
+    `)
+        .eq("id", transactionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Get transaction by id error:", error);
+        return null;
+    }
+
+    return data;
+}

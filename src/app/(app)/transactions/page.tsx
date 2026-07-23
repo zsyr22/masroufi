@@ -15,10 +15,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getCurrentUserTransactions } from "@/features/transactions/services/transaction-service";
-import { cn } from "@/lib/utils";
-import { formatTransactionDate } from "@/features/transactions/utils/transaction-summary";
 import { DeleteTransactionButton } from "@/features/transactions/components/delete-transaction-button";
+import { EditTransactionButton } from "@/features/transactions/components/edit-transaction-button";
+import { getCurrentUserTransactions } from "@/features/transactions/services/transaction-service";
+import { formatTransactionDate } from "@/features/transactions/utils/transaction-summary";
+import { cn } from "@/lib/utils";
 
 function formatAmount(
   amount: number,
@@ -44,7 +45,10 @@ export default async function TransactionsPage() {
         action={
           <Link
             href="/transactions/new"
-            className={cn(buttonVariants(), "gap-2")}
+            className={cn(
+              buttonVariants(),
+              "gap-2"
+            )}
           >
             <Plus className="size-4" />
             Add transaction
@@ -64,8 +68,8 @@ export default async function TransactionsPage() {
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              Add your first expense or income to begin tracking
-              where your money goes.
+              Add your first expense or income to
+              begin tracking where your money goes.
             </p>
           </CardContent>
         </Card>
@@ -79,10 +83,17 @@ export default async function TransactionsPage() {
 
           <CardContent className="divide-y divide-border p-0">
             {transactions.map((transaction) => {
-              const isIncome = transaction.type === "income";
+              const isIncome =
+                transaction.type === "income";
+
               const Icon = isIncome
                 ? ArrowDownLeft
                 : ArrowUpRight;
+
+              const transactionName =
+                transaction.payees?.name ??
+                transaction.categories?.name ??
+                "Transaction";
 
               return (
                 <div
@@ -103,15 +114,25 @@ export default async function TransactionsPage() {
 
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
-                        {transaction.payees?.name ??
-                          transaction.categories?.name ??
-                          "Transaction"}
+                        {transactionName}
                       </p>
 
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {transaction.categories?.name} ·{" "}
-                        {transaction.accounts?.name} ·{" "}
-                        {formatTransactionDate(transaction.transaction_date)}
+                        {
+                          transaction
+                            .categories
+                            ?.name
+                        }{" "}
+                        ·{" "}
+                        {
+                          transaction
+                            .accounts
+                            ?.name
+                        }{" "}
+                        ·{" "}
+                        {formatTransactionDate(
+                          transaction.transaction_date
+                        )}
                       </p>
                     </div>
                   </div>
@@ -141,14 +162,25 @@ export default async function TransactionsPage() {
                       </Badge>
                     </div>
 
-                    <DeleteTransactionButton
-                      transactionId={transaction.id}
-                      transactionName={
-                        transaction.payees?.name ??
-                        transaction.categories?.name ??
-                        "Transaction"
-                      }
-                    />
+                    <div className="flex items-center gap-1">
+                      <EditTransactionButton
+                        transactionId={
+                          transaction.id
+                        }
+                        transactionName={
+                          transactionName
+                        }
+                      />
+
+                      <DeleteTransactionButton
+                        transactionId={
+                          transaction.id
+                        }
+                        transactionName={
+                          transactionName
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               );

@@ -1,18 +1,24 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Save } from "lucide-react";
+import {
+    ArrowDownLeft,
+    ArrowUpRight,
+    Loader2,
+    Settings2,
+} from "lucide-react";
 
 import type { Account } from "@/features/accounts/types/account";
 import {
     createTransaction,
+    updateTransaction,
     type CreateTransactionState,
 } from "@/features/transactions/actions/transaction-actions";
 import type {
     Category,
     TransactionType,
 } from "@/features/transactions/types/transaction";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,12 +31,25 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { Settings2 } from "lucide-react";
 
+
+export type TransactionFormInitialValues = {
+    id: string;
+    type: TransactionType;
+    amount: number;
+    accountId: string;
+    categoryId: string;
+    payeeName: string;
+    payeeType: string;
+    transactionDate: string;
+    notes: string;
+};
 
 type AddTransactionFormProps = {
     accounts: Account[];
     categories: Category[];
+    mode?: "create" | "edit";
+    initialValues?: TransactionFormInitialValues;
 };
 
 const initialState: CreateTransactionState = {};
@@ -47,14 +66,38 @@ function getTodayDate(): string {
 export function AddTransactionForm({
     accounts,
     categories,
+    mode = "create",
+    initialValues,
 }: AddTransactionFormProps) {
-    const [type, setType] = useState<TransactionType>("expense");
-    const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
-    const [categoryId, setCategoryId] = useState("");
-    const [payeeType, setPayeeType] = useState("store");
+    const isEditMode = mode === "edit";
+
+    const [type, setType] = useState<TransactionType>(
+        initialValues?.type ?? "expense"
+    );
+
+    const [accountId, setAccountId] = useState(
+        initialValues?.accountId ??
+        accounts[0]?.id ??
+        ""
+    );
+
+    const [categoryId, setCategoryId] = useState(
+        initialValues?.categoryId ?? ""
+    );
+
+    const [payeeType, setPayeeType] = useState(
+        initialValues?.payeeType ??
+        (initialValues?.type === "income"
+            ? "company"
+            : "store")
+    );
+
+    const transactionAction = isEditMode
+        ? updateTransaction
+        : createTransaction;
 
     const [state, formAction, isPending] = useActionState(
-        createTransaction,
+        transactionAction,
         initialState
     );
 
@@ -96,12 +139,23 @@ export function AddTransactionForm({
     return (
         <Card className="border-border/70">
             <CardContent className="p-6">
-                <form action={formAction} className="space-y-6">
+                <form
+                    action={formAction}
+                    className="space-y-6"
+                    aria-busy={isPending}
+                >
+                    {initialValues?.id ? (
+                        <input
+                            type="hidden"
+                            name="transactionId"
+                            value={initialValues.id}
+                        />
+                    ) : null}
+
                     <input type="hidden" name="type" value={type} />
                     <input type="hidden" name="accountId" value={accountId} />
                     <input type="hidden" name="categoryId" value={categoryId} />
                     <input type="hidden" name="payeeType" value={payeeType} />
-
                     <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-1">
                         <button
                             type="button"
@@ -144,6 +198,7 @@ export function AddTransactionForm({
                                 min="0.01"
                                 step="0.01"
                                 placeholder="0.00"
+                                defaultValue={initialValues?.amount}
                                 className="h-14 pr-20 text-xl font-semibold"
                                 required
                             />
@@ -251,6 +306,7 @@ export function AddTransactionForm({
                                         ? "Carrefour, ENOC, Tala..."
                                         : "Employer, refund..."
                                 }
+                                defaultValue={initialValues?.payeeName}
                             />
                         </div>
 
@@ -293,7 +349,9 @@ export function AddTransactionForm({
                                 id="transactionDate"
                                 name="transactionDate"
                                 type="date"
-                                defaultValue={getTodayDate()}
+                                defaultValue={
+                                    initialValues?.transactionDate ?? getTodayDate()
+                                }
                                 required
                             />
                         </div>
@@ -305,8 +363,10 @@ export function AddTransactionForm({
                                 id="notes"
                                 name="notes"
                                 placeholder="Optional details"
+                                defaultValue={initialValues?.notes}
                                 maxLength={500}
                             />
+
                         </div>
                     </div>
 
@@ -323,19 +383,32 @@ export function AddTransactionForm({
                         </p>
                     ) : null}
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                        <Link
+                            href="/transactions"
+                            aria-disabled={isPending}
+                            className={cn(
+                                buttonVariants({ variant: "outline" }),
+                                isPending && "pointer-events-none opacity-50"
+                            )}
+                        >
+                            Cancel
+                        </Link>
+
                         <Button
                             type="submit"
-                            size="lg"
-                            disabled={
-                                isPending ||
-                                !accountId ||
-                                !categoryId ||
-                                accounts.length === 0
-                            }
+                            disabled={isPending}
                         >
-                            <Save className="size-4" />
-                            {isPending ? "Saving..." : "Save transaction"}
+                            {isPending ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    {isEditMode ? "Updating..." : "Saving..."}
+                                </>
+                            ) : (
+                                isEditMode
+                                    ? "Update transaction"
+                                    : "Save transaction"
+                            )}
                         </Button>
                     </div>
                 </form>
