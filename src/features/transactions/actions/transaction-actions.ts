@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createTransactionSchema } from "@/features/transactions/schemas/transaction-schema";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export type CreateTransactionState = {
     success?: boolean;
@@ -154,10 +155,7 @@ export async function createTransaction(
     revalidatePath("/accounts");
     revalidatePath("/dashboard");
 
-    return {
-        success: true,
-        message: "Transaction added successfully.",
-    };
+    redirect("/transactions");
 }
 
 export type DeleteTransactionState = {
