@@ -1,5 +1,5 @@
 import type {
-    Account,
+    AccountWithBalance,
     CurrencyCode,
 } from "@/features/accounts/types/account";
 
@@ -19,7 +19,7 @@ function createEmptyBalances(): CurrencyBalances {
 }
 
 export function calculateAccountSummary(
-    accounts: Account[]
+    accounts: AccountWithBalance[]
 ): AccountSummary {
     const summary: AccountSummary = {
         available: createEmptyBalances(),
@@ -28,7 +28,7 @@ export function calculateAccountSummary(
     };
 
     for (const account of accounts) {
-        const balance = Number(account.opening_balance);
+        const balance = Number(account.current_balance);
         const currency = account.currency;
 
         summary.total[currency] += balance;

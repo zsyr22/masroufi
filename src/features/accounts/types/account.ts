@@ -16,3 +16,7 @@ export type Account = {
     created_at: string;
     updated_at: string;
 };
+
+export type AccountWithBalance = Account & {
+    current_balance: number;
+};

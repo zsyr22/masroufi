@@ -5,7 +5,7 @@ import {
     WalletCards,
 } from "lucide-react";
 
-import type { Account } from "@/features/accounts/types/account";
+import type { AccountWithBalance } from "@/features/accounts/types/account";
 import { Badge } from "@/components/ui/badge";
 import {
     Card,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 
 type AccountCardProps = {
-    account: Account;
+    account: AccountWithBalance;
 };
 
 const accountTypeDetails = {
@@ -73,12 +73,12 @@ export function AccountCard({
             <CardContent className="space-y-4">
                 <div>
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                        Opening balance
+                        Current balance
                     </p>
 
                     <p className="mt-1 text-2xl font-semibold tracking-tight">
                         {formatBalance(
-                            Number(account.opening_balance),
+                            Number(account.current_balance),
                             account.currency
                         )}
                     </p>
