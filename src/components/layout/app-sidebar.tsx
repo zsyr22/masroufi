@@ -10,6 +10,7 @@ import {
   Repeat2,
   ChartNoAxesCombined,
   Settings,
+  Tags,
 } from "lucide-react";
 
 import { LogoutButton } from "@/features/auth/components/logout-button";
@@ -30,6 +31,11 @@ const navigationItems = [
     label: "Transactions",
     href: "/transactions",
     icon: ArrowLeftRight,
+  },
+  {
+    label: "Categories",
+    href: "/categories",
+    icon: Tags,
   },
   {
     label: "People",

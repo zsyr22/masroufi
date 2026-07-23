@@ -24,6 +24,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Settings2 } from "lucide-react";
+
 
 type AddTransactionFormProps = {
     accounts: Account[];
@@ -188,8 +191,17 @@ export function AddTransactionForm({
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Category</Label>
+                            <div className="flex items-center justify-between gap-3">
+                                <Label>Category</Label>
 
+                                <Link
+                                    href="/categories"
+                                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+                                >
+                                    <Settings2 className="size-3.5" />
+                                    Manage
+                                </Link>
+                            </div>
                             <Select
                                 items={categoryItems}
                                 value={categoryId}
