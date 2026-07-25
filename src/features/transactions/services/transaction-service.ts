@@ -1,4 +1,7 @@
-import type { Transaction } from "@/features/transactions/types/transaction";
+import type {
+    Transaction,
+    TransactionType,
+} from "@/features/transactions/types/transaction";
 import { createClient } from "@/lib/supabase/server";
 
 export type TransactionListItem = Transaction & {
@@ -15,9 +18,15 @@ export type TransactionListItem = Transaction & {
     } | null;
 };
 
-export async function getCurrentUserTransactions(): Promise<
-    TransactionListItem[]
-> {
+export type TransactionFilters = {
+    date?: string;
+    type?: TransactionType | "all";
+    accountId?: string;
+};
+
+export async function getCurrentUserTransactions(
+    filters: TransactionFilters = {}
+): Promise<TransactionListItem[]> {
     const supabase = await createClient();
 
     const {
@@ -28,21 +37,44 @@ export async function getCurrentUserTransactions(): Promise<
         return [];
     }
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("transactions")
         .select(`
-      *,
-      accounts (
-        name
-      ),
-      categories (
-        name
-      ),
-      payees (
-        name
-      )
-    `)
-        .eq("user_id", user.id)
+            *,
+            accounts (
+                name
+            ),
+            categories (
+                name
+            ),
+            payees (
+                name
+            )
+        `)
+        .eq("user_id", user.id);
+
+    if (filters.date) {
+        query = query.eq(
+            "transaction_date",
+            filters.date
+        );
+    }
+
+    if (filters.type && filters.type !== "all") {
+        query = query.eq(
+            "type",
+            filters.type
+        );
+    }
+
+    if (filters.accountId) {
+        query = query.eq(
+            "account_id",
+            filters.accountId
+        );
+    }
+
+    const { data, error } = await query
         .order("transaction_date", {
             ascending: false,
         })
@@ -51,12 +83,17 @@ export async function getCurrentUserTransactions(): Promise<
         });
 
     if (error) {
-        console.error("Load transactions error:", error);
+        console.error(
+            "Load transactions error:",
+            error
+        );
+
         return [];
     }
 
     return (data ?? []) as TransactionListItem[];
 }
+
 export async function getCurrentUserTransactionById(
     transactionId: string
 ) {
@@ -74,37 +111,41 @@ export async function getCurrentUserTransactionById(
     const { data, error } = await supabase
         .from("transactions")
         .select(`
-      id,
-      type,
-      amount,
-      currency,
-      transaction_date,
-      notes,
-      account_id,
-      category_id,
-      payee_id,
-      accounts (
-        id,
-        name,
-        currency
-      ),
-      categories (
-        id,
-        name,
-        transaction_type
-      ),
-      payees (
-        id,
-        name,
-        type
-      )
-    `)
+            id,
+            type,
+            amount,
+            currency,
+            transaction_date,
+            notes,
+            account_id,
+            category_id,
+            payee_id,
+            accounts (
+                id,
+                name,
+                currency
+            ),
+            categories (
+                id,
+                name,
+                transaction_type
+            ),
+            payees (
+                id,
+                name,
+                type
+            )
+        `)
         .eq("id", transactionId)
         .eq("user_id", user.id)
         .maybeSingle();
 
     if (error) {
-        console.error("Get transaction by id error:", error);
+        console.error(
+            "Get transaction by id error:",
+            error
+        );
+
         return null;
     }
 
