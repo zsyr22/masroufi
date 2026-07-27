@@ -407,6 +407,149 @@ export type DeleteTransactionState = {
     message?: string;
 };
 
+export async function deleteTransactions(
+    transactionIds: string[]
+): Promise<DeleteTransactionState> {
+    if (
+        transactionIds.length === 0 ||
+        transactionIds.length > 100
+    ) {
+        return {
+            message:
+                "Select between 1 and 100 transactions.",
+        };
+    }
+
+    const uniqueTransactionIds = [
+        ...new Set(transactionIds),
+    ];
+
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return {
+            message:
+                "Your session expired. Please sign in again.",
+        };
+    }
+
+    const {
+        data: ownedTransactions,
+        error: ownershipError,
+    } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .in("id", uniqueTransactionIds);
+
+    if (ownershipError) {
+        console.error(
+            "Validate bulk transaction ownership error:",
+            {
+                message: ownershipError.message,
+                details: ownershipError.details,
+                hint: ownershipError.hint,
+                code: ownershipError.code,
+            }
+        );
+
+        return {
+            message:
+                "The selected transactions could not be validated.",
+        };
+    }
+
+    const ownedTransactionIds = (
+        ownedTransactions ?? []
+    ).map((transaction) => transaction.id);
+
+    if (
+        ownedTransactionIds.length !==
+        uniqueTransactionIds.length
+    ) {
+        return {
+            message:
+                "One or more selected transactions could not be found.",
+        };
+    }
+
+    const {
+        data: linkedEntries,
+        error: linkedEntriesError,
+    } = await supabase
+        .from("person_balance_entries")
+        .select("person_id")
+        .eq("user_id", user.id)
+        .in(
+            "transaction_id",
+            ownedTransactionIds
+        );
+
+    if (linkedEntriesError) {
+        console.error(
+            "Load bulk linked person entries error:",
+            linkedEntriesError
+        );
+    }
+
+    const { error: deleteError } =
+        await supabase
+            .from("transactions")
+            .delete()
+            .eq("user_id", user.id)
+            .in(
+                "id",
+                ownedTransactionIds
+            );
+
+    if (deleteError) {
+        console.error(
+            "Bulk delete transactions error:",
+            {
+                message: deleteError.message,
+                details: deleteError.details,
+                hint: deleteError.hint,
+                code: deleteError.code,
+            }
+        );
+
+        return {
+            message:
+                "The selected transactions could not be deleted.",
+        };
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/accounts");
+    revalidatePath("/dashboard");
+    revalidatePath("/people");
+    revalidatePath("/reports");
+
+    const affectedPersonIds = [
+        ...new Set(
+            (linkedEntries ?? []).map(
+                (entry) => entry.person_id
+            )
+        ),
+    ];
+
+    for (const personId of affectedPersonIds) {
+        revalidatePath(
+            `/people/${personId}`
+        );
+    }
+
+    return {
+        success: true,
+        message: `${ownedTransactionIds.length} transactions deleted successfully.`,
+    };
+}
+
 export async function deleteTransaction(
     transactionId: string
 ): Promise<DeleteTransactionState> {

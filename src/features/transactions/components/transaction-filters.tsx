@@ -6,7 +6,6 @@ import {
     Landmark,
     ListFilter,
 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,11 @@ import {
 } from "@/components/ui/select";
 import type { Account } from "@/features/accounts/types/account";
 import type { TransactionType } from "@/features/transactions/types/transaction";
+import {
+    usePathname,
+    useRouter,
+    useSearchParams,
+} from "next/navigation";
 
 type TransactionFiltersProps = {
     accounts: Account[];
@@ -50,7 +54,13 @@ export function TransactionFilters({
 }: TransactionFiltersProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const currentSearchParams =
+        useSearchParams();
 
+    const hasSearch =
+        Boolean(
+            currentSearchParams.get("q")
+        );
     const selectedAccount = accounts.find(
         (account) => account.id === accountId
     );
@@ -127,6 +137,7 @@ export function TransactionFilters({
     }
 
     const hasActiveFilters =
+        hasSearch ||
         Boolean(date) ||
         type !== "all" ||
         Boolean(accountId);

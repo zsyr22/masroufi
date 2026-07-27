@@ -526,6 +526,12 @@ export async function deleteSubscription(
                     formData,
                     "subscriptionId"
                 ),
+
+            deletePaymentHistory:
+                getFormString(
+                    formData,
+                    "deletePaymentHistory"
+                ),
         });
 
     if (!parsed.success) {
@@ -541,9 +547,10 @@ export async function deleteSubscription(
 
     const {
         data: { user },
+        error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
         return {
             success: false,
             message:
@@ -551,19 +558,92 @@ export async function deleteSubscription(
         };
     }
 
-    const { error } = await supabase
-        .from("subscriptions")
-        .delete()
-        .eq(
-            "id",
-            parsed.data.subscriptionId
-        )
-        .eq("user_id", user.id);
+    const {
+        subscriptionId,
+        deletePaymentHistory,
+    } = parsed.data;
 
-    if (error) {
+    const {
+        data: subscription,
+        error: subscriptionError,
+    } = await supabase
+        .from("subscriptions")
+        .select("id, name")
+        .eq("id", subscriptionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (
+        subscriptionError ||
+        !subscription
+    ) {
+        console.error(
+            "Load subscription before delete error:",
+            subscriptionError
+        );
+
+        return {
+            success: false,
+            message:
+                "Subscription not found.",
+        };
+    }
+
+    if (deletePaymentHistory) {
+        const {
+            error: transactionsError,
+        } = await supabase
+            .from("transactions")
+            .delete()
+            .eq(
+                "subscription_id",
+                subscriptionId
+            )
+            .eq("user_id", user.id);
+
+        if (transactionsError) {
+            console.error(
+                "Delete subscription transactions error:",
+                {
+                    message:
+                        transactionsError.message,
+                    details:
+                        transactionsError.details,
+                    hint:
+                        transactionsError.hint,
+                    code:
+                        transactionsError.code,
+                }
+            );
+
+            return {
+                success: false,
+                message:
+                    "Could not delete the subscription payment history.",
+            };
+        }
+    }
+
+    const { error: deleteError } =
+        await supabase
+            .from("subscriptions")
+            .delete()
+            .eq("id", subscriptionId)
+            .eq("user_id", user.id);
+
+    if (deleteError) {
         console.error(
             "Delete subscription error:",
-            error
+            {
+                message:
+                    deleteError.message,
+                details:
+                    deleteError.details,
+                hint:
+                    deleteError.hint,
+                code:
+                    deleteError.code,
+            }
         );
 
         return {
@@ -573,15 +653,17 @@ export async function deleteSubscription(
         };
     }
 
-    revalidatePath(
-        "/subscriptions"
-    );
+    revalidatePath("/subscriptions");
+    revalidatePath("/transactions");
+    revalidatePath("/accounts");
+    revalidatePath("/reports");
     revalidatePath("/dashboard");
 
     return {
         success: true,
-        message:
-            "Subscription deleted.",
+        message: deletePaymentHistory
+            ? "Subscription and payment history deleted."
+            : "Subscription deleted. Payment history was preserved.",
     };
 }
 
@@ -714,6 +796,7 @@ export async function recordSubscriptionPayment(
             .from("transactions")
             .insert({
                 user_id: user.id,
+
                 account_id:
                     subscription.account_id,
 
@@ -721,6 +804,10 @@ export async function recordSubscriptionPayment(
                     subscription.category_id,
 
                 payee_id: null,
+
+                subscription_id:
+                    subscription.id,
+
                 type: "expense",
 
                 amount: Number(
@@ -735,7 +822,6 @@ export async function recordSubscriptionPayment(
 
                 notes: transactionNotes,
             });
-
     if (transactionError) {
         console.error(
             "Create subscription transaction error:",

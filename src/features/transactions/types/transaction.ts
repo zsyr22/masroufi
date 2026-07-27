@@ -44,6 +44,7 @@ export type Transaction = {
     account_id: string;
     category_id: string;
     payee_id: string | null;
+    subscription_id: string | null;
     type: TransactionType;
     amount: number;
     currency: CurrencyCode;

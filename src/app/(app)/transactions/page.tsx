@@ -1,58 +1,39 @@
 import Link from "next/link";
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
   Plus,
   ReceiptText,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUserAccounts } from "@/features/accounts/services/account-service";
-import { DeleteTransactionButton } from "@/features/transactions/components/delete-transaction-button";
-import { EditTransactionButton } from "@/features/transactions/components/edit-transaction-button";
 import { TransactionFilterSummary } from "@/features/transactions/components/transaction-filter-summary";
 import { TransactionFilters } from "@/features/transactions/components/transaction-filters";
 import { getCurrentUserTransactions } from "@/features/transactions/services/transaction-service";
 import type { TransactionType } from "@/features/transactions/types/transaction";
 import { cn } from "@/lib/utils";
-import { TransactionDateGroupHeader } from "@/features/transactions/components/transaction-date-group-header";
-import { groupTransactionsByDate } from "@/features/transactions/utils/group-transactions-by-date";
-import { getTransactionDisplayTitle } from "@/features/transactions/utils/transaction-display";
+import { TransactionHistory } from "@/features/transactions/components/transaction-history";
+import { TransactionSearch } from "@/features/transactions/components/transaction-search";
 
 type TransactionsPageProps = {
   searchParams: Promise<{
+    q?: string;
     date?: string;
     type?: string;
     account?: string;
   }>;
 };
 
-function formatAmount(
-  amount: number,
-  currency: string,
-  type: TransactionType
-) {
-  const value = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(amount));
-
-  return `${type === "income" ? "+" : "-"}${value} ${currency}`;
-}
-
 export default async function TransactionsPage({
   searchParams,
 }: TransactionsPageProps) {
   const params = await searchParams;
-
+  const searchQuery =
+    params.q?.trim() ?? "";
   const date = params.date ?? "";
 
   const type: TransactionType | "all" =
@@ -65,20 +46,22 @@ export default async function TransactionsPage({
 
   const [transactions, accounts] = await Promise.all([
     getCurrentUserTransactions({
+      search:
+        searchQuery || undefined,
       date: date || undefined,
       type,
-      accountId: accountId || undefined,
+      accountId:
+        accountId || undefined,
     }),
     getCurrentUserAccounts(),
   ]);
 
   const hasActiveFilters =
+    Boolean(searchQuery) ||
     Boolean(date) ||
     type !== "all" ||
     Boolean(accountId);
 
-  const transactionGroups =
-    groupTransactionsByDate(transactions);
 
   return (
     <div className="space-y-8">
@@ -88,12 +71,19 @@ export default async function TransactionsPage({
         action={
           <Link
             href="/transactions/new"
-            className={cn(buttonVariants(), "gap-2")}
+            className={cn(
+              buttonVariants(),
+              "gap-2"
+            )}
           >
             <Plus className="size-4" />
             Add transaction
           </Link>
         }
+      />
+
+      <TransactionSearch
+        initialQuery={searchQuery}
       />
 
       <TransactionFilters
@@ -126,140 +116,9 @@ export default async function TransactionsPage({
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-base">
-              Transaction history
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            {transactionGroups.map((group) => {
-              const currency =
-                group.transactions[0]?.currency ?? "AED";
-
-              return (
-                <section
-                  key={group.date}
-                  className="border-t first:border-t-0"
-                >
-                  <TransactionDateGroupHeader
-                    label={group.label}
-                    totalIncome={group.totalIncome}
-                    totalExpenses={group.totalExpenses}
-                    netAmount={group.netAmount}
-                    currency={currency}
-                  />
-
-                  <div className="divide-y divide-border">
-                    {group.transactions.map(
-                      (transaction) => {
-                        const isIncome =
-                          transaction.type ===
-                          "income";
-
-                        const Icon = isIncome
-                          ? ArrowDownLeft
-                          : ArrowUpRight;
-
-                        const transactionName =
-                          transaction.payees
-                            ?.name ??
-                          transaction.categories
-                            ?.name ??
-                          "Transaction";
-
-                        return (
-                          <div
-                            key={transaction.id}
-                            className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/30"
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div
-                                className={cn(
-                                  "flex size-10 shrink-0 items-center justify-center rounded-xl",
-                                  isIncome
-                                    ? "bg-primary/10 text-primary"
-                                    : "bg-destructive/10 text-destructive"
-                                )}
-                              >
-                                <Icon className="size-4" />
-                              </div>
-
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">
-                                  {getTransactionDisplayTitle(transaction)}
-                                </p>
-
-                                <p className="mt-1 truncate text-xs text-muted-foreground">
-                                  {transaction
-                                    .categories
-                                    ?.name ??
-                                    "No category"}{" "}
-                                  ·{" "}
-                                  {transaction
-                                    .accounts
-                                    ?.name ??
-                                    "No account"}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex shrink-0 items-center gap-3">
-                              <div className="text-right">
-                                <p
-                                  className={cn(
-                                    "text-sm font-semibold",
-                                    isIncome
-                                      ? "text-primary"
-                                      : "text-foreground"
-                                  )}
-                                >
-                                  {formatAmount(
-                                    transaction.amount,
-                                    transaction.currency,
-                                    transaction.type
-                                  )}
-                                </p>
-
-                                <Badge
-                                  variant="secondary"
-                                  className="mt-1 capitalize"
-                                >
-                                  {
-                                    transaction.type
-                                  }
-                                </Badge>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <EditTransactionButton
-                                  transactionId={
-                                    transaction.id
-                                  }
-                                  transactionName={
-                                    transactionName
-                                  }
-                                />
-
-                                <DeleteTransactionButton
-                                  transactionId={transaction.id}
-                                  transactionName={getTransactionDisplayTitle(
-                                    transaction
-                                  )}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </CardContent>
-        </Card>
+        <TransactionHistory
+          transactions={transactions}
+        />
       )}
     </div>
   );

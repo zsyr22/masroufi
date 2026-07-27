@@ -41,7 +41,9 @@ const optionalPositiveIntegerSchema = z.preprocess(
 );
 
 const formBooleanSchema = z.preprocess(
-    (value) => value === "true" || value === true,
+    (value) =>
+        value === true ||
+        value === "true",
     z.boolean()
 );
 
@@ -168,6 +170,9 @@ export const deleteSubscriptionSchema =
         subscriptionId: z
             .string()
             .uuid("Invalid subscription."),
+
+        deletePaymentHistory:
+            formBooleanSchema,
     });
 
 export const recordSubscriptionPaymentSchema =
