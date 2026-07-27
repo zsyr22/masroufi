@@ -25,6 +25,7 @@ import type { TransactionType } from "@/features/transactions/types/transaction"
 import { cn } from "@/lib/utils";
 import { TransactionDateGroupHeader } from "@/features/transactions/components/transaction-date-group-header";
 import { groupTransactionsByDate } from "@/features/transactions/utils/group-transactions-by-date";
+import { getTransactionDisplayTitle } from "@/features/transactions/utils/transaction-display";
 
 type TransactionsPageProps = {
   searchParams: Promise<{
@@ -187,9 +188,7 @@ export default async function TransactionsPage({
 
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-medium">
-                                  {
-                                    transactionName
-                                  }
+                                  {getTransactionDisplayTitle(transaction)}
                                 </p>
 
                                 <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -244,12 +243,10 @@ export default async function TransactionsPage({
                                 />
 
                                 <DeleteTransactionButton
-                                  transactionId={
-                                    transaction.id
-                                  }
-                                  transactionName={
-                                    transactionName
-                                  }
+                                  transactionId={transaction.id}
+                                  transactionName={getTransactionDisplayTitle(
+                                    transaction
+                                  )}
                                 />
                               </div>
                             </div>

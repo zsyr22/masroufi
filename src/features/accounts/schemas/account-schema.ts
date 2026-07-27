@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const createAccountSchema = z.object({
+export const accountSchema = z.object({
     name: z
         .string()
         .trim()
@@ -18,6 +18,16 @@ export const createAccountSchema = z.object({
     isIncludedInAvailableBalance: z.boolean(),
 });
 
+export const createAccountSchema = accountSchema;
+
+export const updateAccountSchema = accountSchema.extend({
+    accountId: z.string().uuid("Invalid account."),
+});
+
 export type CreateAccountInput = z.infer<
     typeof createAccountSchema
+>;
+
+export type UpdateAccountInput = z.infer<
+    typeof updateAccountSchema
 >;

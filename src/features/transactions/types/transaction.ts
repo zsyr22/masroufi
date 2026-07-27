@@ -1,4 +1,5 @@
 import type { CurrencyCode } from "@/features/accounts/types/account";
+import type { PersonEntryType } from "@/features/people/types/person";
 
 export const transactionTypes = [
     "income",
@@ -50,4 +51,12 @@ export type Transaction = {
     notes: string | null;
     created_at: string;
     updated_at: string;
+};
+
+export type TransactionPersonEntry = {
+    entry_type: PersonEntryType;
+
+    people: {
+        name: string;
+    } | null;
 };

@@ -1,5 +1,6 @@
 import type {
     Transaction,
+    TransactionPersonEntry,
     TransactionType,
 } from "@/features/transactions/types/transaction";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +17,8 @@ export type TransactionListItem = Transaction & {
     payees: {
         name: string;
     } | null;
+
+    person_balance_entries: TransactionPersonEntry[];
 };
 
 export type TransactionFilters = {
@@ -49,6 +52,12 @@ export async function getCurrentUserTransactions(
             ),
             payees (
                 name
+            ),
+            person_balance_entries (
+                entry_type,
+                people (
+                    name
+                )
             )
         `)
         .eq("user_id", user.id);
@@ -60,7 +69,10 @@ export async function getCurrentUserTransactions(
         );
     }
 
-    if (filters.type && filters.type !== "all") {
+    if (
+        filters.type &&
+        filters.type !== "all"
+    ) {
         query = query.eq(
             "type",
             filters.type
@@ -85,7 +97,12 @@ export async function getCurrentUserTransactions(
     if (error) {
         console.error(
             "Load transactions error:",
-            error
+            {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code,
+            }
         );
 
         return [];
@@ -143,7 +160,12 @@ export async function getCurrentUserTransactionById(
     if (error) {
         console.error(
             "Get transaction by id error:",
-            error
+            {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code,
+            }
         );
 
         return null;

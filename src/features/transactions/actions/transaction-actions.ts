@@ -1,12 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-
-import {
-    createTransactionSchema,
-} from "@/features/transactions/schemas/transaction-schema";
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+
+import { createTransactionSchema } from "@/features/transactions/schemas/transaction-schema";
+import { createClient } from "@/lib/supabase/server";
 
 export type CreateTransactionState = {
     success?: boolean;
@@ -20,8 +18,155 @@ export type CreateTransactionState = {
         payeeType?: string[];
         transactionDate?: string[];
         notes?: string[];
+        involvesPerson?: string[];
+        personId?: string[];
+        personRelationship?: string[];
     };
 };
+
+type PersonRelationship =
+    | "paid_for_person"
+    | "repayment_received"
+    | "repayment_sent";
+
+function getBalanceEffect(
+    relationship: PersonRelationship,
+    amount: number
+): number {
+    switch (relationship) {
+        case "paid_for_person":
+            return amount;
+
+        case "repayment_received":
+            return -amount;
+
+        case "repayment_sent":
+            return amount;
+    }
+}
+
+function getEntryDescription(
+    payeeName?: string,
+    notes?: string
+): string | null {
+    const description =
+        notes?.trim() || payeeName?.trim();
+
+    return description || null;
+}
+
+async function validatePerson(
+    supabase: Awaited<
+        ReturnType<typeof createClient>
+    >,
+    userId: string,
+    personId: string
+) {
+    const { data, error } = await supabase
+        .from("people")
+        .select("id")
+        .eq("id", personId)
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+    if (error || !data) {
+        return null;
+    }
+
+    return data;
+}
+
+async function resolvePayeeId({
+    supabase,
+    userId,
+    payeeName,
+    payeeType,
+}: {
+    supabase: Awaited<
+        ReturnType<typeof createClient>
+    >;
+    userId: string;
+    payeeName?: string;
+    payeeType: string;
+}): Promise<{
+    payeeId: string | null;
+    errorMessage?: string;
+}> {
+    if (!payeeName?.trim()) {
+        return {
+            payeeId: null,
+        };
+    }
+
+    const normalizedPayeeName =
+        payeeName.trim();
+
+    const { data: existingPayee } =
+        await supabase
+            .from("payees")
+            .select("id")
+            .eq("user_id", userId)
+            .ilike("name", normalizedPayeeName)
+            .eq("is_active", true)
+            .maybeSingle();
+
+    if (existingPayee) {
+        return {
+            payeeId: existingPayee.id,
+        };
+    }
+
+    const { data: newPayee, error } =
+        await supabase
+            .from("payees")
+            .insert({
+                user_id: userId,
+                name: normalizedPayeeName,
+                type: payeeType,
+            })
+            .select("id")
+            .single();
+
+    if (error || !newPayee) {
+        console.error("Create payee error:", {
+            message: error?.message,
+            details: error?.details,
+            hint: error?.hint,
+            code: error?.code,
+        });
+
+        return {
+            payeeId: null,
+            errorMessage:
+                "The store or payee could not be created.",
+        };
+    }
+
+    return {
+        payeeId: newPayee.id,
+    };
+}
+
+function revalidateTransactionPages(
+    transactionId?: string,
+    personId?: string | null
+) {
+    revalidatePath("/transactions");
+    revalidatePath("/accounts");
+    revalidatePath("/dashboard");
+    revalidatePath("/people");
+
+    if (transactionId) {
+        revalidatePath(
+            `/transactions/${transactionId}/edit`
+        );
+    }
+
+    if (personId) {
+        revalidatePath(`/people/${personId}`);
+    }
+}
 
 export async function createTransaction(
     _previousState: CreateTransactionState,
@@ -36,126 +181,223 @@ export async function createTransaction(
 
     if (userError || !user) {
         return {
-            message: "Your session expired. Please sign in again.",
+            message:
+                "Your session expired. Please sign in again.",
         };
     }
 
-    const parsed = createTransactionSchema.safeParse({
-        type: formData.get("type"),
-        amount: formData.get("amount"),
-        accountId: formData.get("accountId"),
-        categoryId: formData.get("categoryId"),
-        payeeName: formData.get("payeeName") || undefined,
-        payeeType: formData.get("payeeType"),
-        transactionDate: formData.get("transactionDate"),
-        notes: formData.get("notes") || undefined,
-    });
+    const parsed =
+        createTransactionSchema.safeParse({
+            type: formData.get("type"),
+            amount: formData.get("amount"),
+            accountId: formData.get("accountId"),
+            categoryId:
+                formData.get("categoryId"),
+            payeeName:
+                formData.get("payeeName") ||
+                undefined,
+            payeeType: formData.get("payeeType"),
+            transactionDate:
+                formData.get("transactionDate"),
+            notes:
+                formData.get("notes") || undefined,
+            involvesPerson:
+                formData.get("involvesPerson"),
+            personId:
+                formData.get("personId") ||
+                undefined,
+            personRelationship:
+                formData.get(
+                    "personRelationship"
+                ) || undefined,
+        });
 
     if (!parsed.success) {
         return {
-            message: "Please review the highlighted fields.",
-            fieldErrors: parsed.error.flatten().fieldErrors,
+            message:
+                "Please review the highlighted fields.",
+            fieldErrors:
+                parsed.error.flatten().fieldErrors,
         };
     }
 
     const input = parsed.data;
 
-    const { data: account, error: accountError } = await supabase
-        .from("accounts")
-        .select("id, currency")
-        .eq("id", input.accountId)
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .single();
+    const { data: account, error: accountError } =
+        await supabase
+            .from("accounts")
+            .select("id, currency")
+            .eq("id", input.accountId)
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .maybeSingle();
 
     if (accountError || !account) {
         return {
-            message: "The selected account could not be found.",
+            message:
+                "The selected account could not be found.",
         };
     }
 
-    const { data: category, error: categoryError } = await supabase
+    const {
+        data: category,
+        error: categoryError,
+    } = await supabase
         .from("categories")
         .select("id, transaction_type")
         .eq("id", input.categoryId)
         .eq("user_id", user.id)
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
     if (categoryError || !category) {
         return {
-            message: "The selected category could not be found.",
+            message:
+                "The selected category could not be found.",
         };
     }
 
-    if (category.transaction_type !== input.type) {
+    if (
+        category.transaction_type !== input.type
+    ) {
         return {
             message:
                 "The selected category does not match the transaction type.",
         };
     }
 
-    let payeeId: string | null = null;
+    if (
+        input.involvesPerson &&
+        input.personId
+    ) {
+        const person = await validatePerson(
+            supabase,
+            user.id,
+            input.personId
+        );
 
-    if (input.payeeName) {
-        const normalizedPayeeName = input.payeeName.trim();
-
-        const { data: existingPayee } = await supabase
-            .from("payees")
-            .select("id")
-            .eq("user_id", user.id)
-            .ilike("name", normalizedPayeeName)
-            .eq("is_active", true)
-            .maybeSingle();
-
-        if (existingPayee) {
-            payeeId = existingPayee.id;
-        } else {
-            const { data: newPayee, error: payeeError } = await supabase
-                .from("payees")
-                .insert({
-                    user_id: user.id,
-                    name: normalizedPayeeName,
-                    type: input.payeeType,
-                })
-                .select("id")
-                .single();
-
-            if (payeeError || !newPayee) {
-                console.error("Create payee error:", payeeError);
-
-                return {
-                    message: "The store or payee could not be created.",
-                };
-            }
-
-            payeeId = newPayee.id;
+        if (!person) {
+            return {
+                message:
+                    "The selected person could not be found.",
+                fieldErrors: {
+                    personId: [
+                        "Select a valid active person.",
+                    ],
+                },
+            };
         }
     }
 
-    const { error } = await supabase.from("transactions").insert({
-        user_id: user.id,
-        account_id: account.id,
-        category_id: category.id,
-        payee_id: payeeId,
-        type: input.type,
-        amount: input.amount,
-        currency: account.currency,
-        transaction_date: input.transactionDate,
-        notes: input.notes || null,
-    });
+    const payeeResult =
+        await resolvePayeeId({
+            supabase,
+            userId: user.id,
+            payeeName: input.payeeName,
+            payeeType: input.payeeType,
+        });
 
-    if (error) {
-        console.error("Create transaction error:", error);
-
+    if (payeeResult.errorMessage) {
         return {
-            message: "The transaction could not be saved.",
+            message: payeeResult.errorMessage,
         };
     }
 
-    revalidatePath("/transactions");
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
+    const {
+        data: transaction,
+        error: transactionError,
+    } = await supabase
+        .from("transactions")
+        .insert({
+            user_id: user.id,
+            account_id: account.id,
+            category_id: category.id,
+            payee_id: payeeResult.payeeId,
+            type: input.type,
+            amount: input.amount,
+            currency: account.currency,
+            transaction_date:
+                input.transactionDate,
+            notes: input.notes || null,
+        })
+        .select("id")
+        .single();
+
+    if (transactionError || !transaction) {
+        console.error(
+            "Create transaction error:",
+            {
+                message: transactionError?.message,
+                details:
+                    transactionError?.details,
+                hint: transactionError?.hint,
+                code: transactionError?.code,
+            }
+        );
+
+        return {
+            message:
+                "The transaction could not be saved.",
+        };
+    }
+
+    if (
+        input.involvesPerson &&
+        input.personId &&
+        input.personRelationship
+    ) {
+        const { error: entryError } =
+            await supabase
+                .from("person_balance_entries")
+                .insert({
+                    user_id: user.id,
+                    person_id: input.personId,
+                    transaction_id: transaction.id,
+                    entry_type:
+                        input.personRelationship,
+                    balance_effect:
+                        getBalanceEffect(
+                            input.personRelationship,
+                            input.amount
+                        ),
+                    currency: account.currency,
+                    entry_date:
+                        input.transactionDate,
+                    description:
+                        getEntryDescription(
+                            input.payeeName,
+                            input.notes
+                        ),
+                });
+
+        if (entryError) {
+            console.error(
+                "Create linked person entry error:",
+                {
+                    message: entryError.message,
+                    details: entryError.details,
+                    hint: entryError.hint,
+                    code: entryError.code,
+                }
+            );
+
+            await supabase
+                .from("transactions")
+                .delete()
+                .eq("id", transaction.id)
+                .eq("user_id", user.id);
+
+            return {
+                message:
+                    "The person balance could not be recorded, so the transaction was not saved.",
+            };
+        }
+    }
+
+    revalidateTransactionPages(
+        transaction.id,
+        input.personId
+    );
 
     redirect("/transactions");
 }
@@ -177,21 +419,42 @@ export async function deleteTransaction(
 
     if (userError || !user) {
         return {
-            message: "Your session expired. Please sign in again.",
+            message:
+                "Your session expired. Please sign in again.",
         };
     }
 
-    const { data: transaction, error: transactionError } =
-        await supabase
-            .from("transactions")
-            .select("id")
-            .eq("id", transactionId)
-            .eq("user_id", user.id)
-            .maybeSingle();
+    const {
+        data: linkedEntry,
+        error: linkedEntryError,
+    } = await supabase
+        .from("person_balance_entries")
+        .select("person_id")
+        .eq("transaction_id", transactionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (linkedEntryError) {
+        console.error(
+            "Load linked person entry error:",
+            linkedEntryError
+        );
+    }
+
+    const {
+        data: transaction,
+        error: transactionError,
+    } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("id", transactionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
     if (transactionError || !transaction) {
         return {
-            message: "The transaction could not be found.",
+            message:
+                "The transaction could not be found.",
         };
     }
 
@@ -202,22 +465,29 @@ export async function deleteTransaction(
         .eq("user_id", user.id);
 
     if (error) {
-        console.error("Delete transaction error:", error);
+        console.error(
+            "Delete transaction error:",
+            error
+        );
 
         return {
-            message: "The transaction could not be deleted.",
+            message:
+                "The transaction could not be deleted.",
         };
     }
 
-    revalidatePath("/transactions");
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
+    revalidateTransactionPages(
+        transactionId,
+        linkedEntry?.person_id
+    );
 
     return {
         success: true,
-        message: "Transaction deleted successfully.",
+        message:
+            "Transaction deleted successfully.",
     };
 }
+
 export async function updateTransaction(
     _previousState: CreateTransactionState,
     formData: FormData
@@ -231,154 +501,305 @@ export async function updateTransaction(
 
     if (userError || !user) {
         return {
-            message: "Your session expired. Please sign in again.",
+            message:
+                "Your session expired. Please sign in again.",
         };
     }
 
-    const transactionId = formData.get("transactionId");
+    const transactionId =
+        formData.get("transactionId");
 
     if (
         typeof transactionId !== "string" ||
         transactionId.trim().length === 0
     ) {
         return {
-            message: "The transaction could not be found.",
+            message:
+                "The transaction could not be found.",
         };
     }
 
-    const parsed = createTransactionSchema.safeParse({
-        type: formData.get("type"),
-        amount: formData.get("amount"),
-        accountId: formData.get("accountId"),
-        categoryId: formData.get("categoryId"),
-        payeeName: formData.get("payeeName") || undefined,
-        payeeType: formData.get("payeeType"),
-        transactionDate: formData.get("transactionDate"),
-        notes: formData.get("notes") || undefined,
-    });
+    const parsed =
+        createTransactionSchema.safeParse({
+            type: formData.get("type"),
+            amount: formData.get("amount"),
+            accountId: formData.get("accountId"),
+            categoryId:
+                formData.get("categoryId"),
+            payeeName:
+                formData.get("payeeName") ||
+                undefined,
+            payeeType: formData.get("payeeType"),
+            transactionDate:
+                formData.get("transactionDate"),
+            notes:
+                formData.get("notes") || undefined,
+            involvesPerson:
+                formData.get("involvesPerson"),
+            personId:
+                formData.get("personId") ||
+                undefined,
+            personRelationship:
+                formData.get(
+                    "personRelationship"
+                ) || undefined,
+        });
 
     if (!parsed.success) {
         return {
-            message: "Please review the highlighted fields.",
-            fieldErrors: parsed.error.flatten().fieldErrors,
+            message:
+                "Please review the highlighted fields.",
+            fieldErrors:
+                parsed.error.flatten().fieldErrors,
         };
     }
 
     const input = parsed.data;
 
-    const { data: existingTransaction, error: transactionError } =
-        await supabase
-            .from("transactions")
-            .select("id")
-            .eq("id", transactionId)
-            .eq("user_id", user.id)
-            .maybeSingle();
+    const {
+        data: existingTransaction,
+        error: existingTransactionError,
+    } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("id", transactionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (transactionError || !existingTransaction) {
+    if (
+        existingTransactionError ||
+        !existingTransaction
+    ) {
         return {
-            message: "The transaction could not be found.",
+            message:
+                "The transaction could not be found.",
         };
     }
 
-    const { data: account, error: accountError } = await supabase
-        .from("accounts")
-        .select("id, currency")
-        .eq("id", input.accountId)
+    const {
+        data: existingPersonEntry,
+        error: existingEntryError,
+    } = await supabase
+        .from("person_balance_entries")
+        .select("*")
+        .eq("transaction_id", transactionId)
         .eq("user_id", user.id)
-        .eq("is_active", true)
         .maybeSingle();
+
+    if (existingEntryError) {
+        return {
+            message:
+                "The linked person balance could not be loaded.",
+        };
+    }
+
+    const { data: account, error: accountError } =
+        await supabase
+            .from("accounts")
+            .select("id, currency")
+            .eq("id", input.accountId)
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .maybeSingle();
 
     if (accountError || !account) {
         return {
-            message: "The selected account could not be found.",
+            message:
+                "The selected account could not be found.",
         };
     }
 
-    const { data: category, error: categoryError } = await supabase
+    const {
+        data: category,
+        error: categoryError,
+    } = await supabase
         .from("categories")
         .select("id, transaction_type")
         .eq("id", input.categoryId)
         .eq("user_id", user.id)
+        .eq("is_active", true)
         .maybeSingle();
 
     if (categoryError || !category) {
         return {
-            message: "The selected category could not be found.",
+            message:
+                "The selected category could not be found.",
         };
     }
 
-    if (category.transaction_type !== input.type) {
+    if (
+        category.transaction_type !== input.type
+    ) {
         return {
             message:
                 "The selected category does not match the transaction type.",
         };
     }
 
-    let payeeId: string | null = null;
+    if (
+        input.involvesPerson &&
+        input.personId
+    ) {
+        const person = await validatePerson(
+            supabase,
+            user.id,
+            input.personId
+        );
 
-    if (input.payeeName) {
-        const normalizedPayeeName = input.payeeName.trim();
-
-        const { data: existingPayee } = await supabase
-            .from("payees")
-            .select("id")
-            .eq("user_id", user.id)
-            .ilike("name", normalizedPayeeName)
-            .eq("is_active", true)
-            .maybeSingle();
-
-        if (existingPayee) {
-            payeeId = existingPayee.id;
-        } else {
-            const { data: newPayee, error: payeeError } = await supabase
-                .from("payees")
-                .insert({
-                    user_id: user.id,
-                    name: normalizedPayeeName,
-                    type: input.payeeType,
-                })
-                .select("id")
-                .single();
-
-            if (payeeError || !newPayee) {
-                console.error("Create payee error:", payeeError);
-
-                return {
-                    message: "The store or payee could not be created.",
-                };
-            }
-
-            payeeId = newPayee.id;
+        if (!person) {
+            return {
+                message:
+                    "The selected person could not be found.",
+                fieldErrors: {
+                    personId: [
+                        "Select a valid active person.",
+                    ],
+                },
+            };
         }
     }
 
-    const { error } = await supabase
-        .from("transactions")
-        .update({
-            account_id: account.id,
-            category_id: category.id,
-            payee_id: payeeId,
-            type: input.type,
-            amount: input.amount,
-            currency: account.currency,
-            transaction_date: input.transactionDate,
-            notes: input.notes || null,
-        })
-        .eq("id", transactionId)
-        .eq("user_id", user.id);
+    const payeeResult =
+        await resolvePayeeId({
+            supabase,
+            userId: user.id,
+            payeeName: input.payeeName,
+            payeeType: input.payeeType,
+        });
 
-    if (error) {
-        console.error("Update transaction error:", error);
-
+    if (payeeResult.errorMessage) {
         return {
-            message: "The transaction could not be updated.",
+            message: payeeResult.errorMessage,
         };
     }
 
-    revalidatePath("/transactions");
-    revalidatePath(`/transactions/${transactionId}/edit`);
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
+    const { error: updateError } =
+        await supabase
+            .from("transactions")
+            .update({
+                account_id: account.id,
+                category_id: category.id,
+                payee_id: payeeResult.payeeId,
+                type: input.type,
+                amount: input.amount,
+                currency: account.currency,
+                transaction_date:
+                    input.transactionDate,
+                notes: input.notes || null,
+            })
+            .eq("id", transactionId)
+            .eq("user_id", user.id);
+
+    if (updateError) {
+        console.error(
+            "Update transaction error:",
+            updateError
+        );
+
+        return {
+            message:
+                "The transaction could not be updated.",
+        };
+    }
+
+    let personSyncError:
+        | { message: string }
+        | null = null;
+
+    if (
+        input.involvesPerson &&
+        input.personId &&
+        input.personRelationship
+    ) {
+        const entryValues = {
+            user_id: user.id,
+            person_id: input.personId,
+            transaction_id: transactionId,
+            entry_type:
+                input.personRelationship,
+            balance_effect: getBalanceEffect(
+                input.personRelationship,
+                input.amount
+            ),
+            currency: account.currency,
+            entry_date: input.transactionDate,
+            description:
+                getEntryDescription(
+                    input.payeeName,
+                    input.notes
+                ),
+        };
+
+        if (existingPersonEntry) {
+            const { error } = await supabase
+                .from("person_balance_entries")
+                .update(entryValues)
+                .eq("id", existingPersonEntry.id)
+                .eq("user_id", user.id);
+
+            if (error) {
+                personSyncError = error;
+            }
+        } else {
+            const { error } = await supabase
+                .from("person_balance_entries")
+                .insert(entryValues);
+
+            if (error) {
+                personSyncError = error;
+            }
+        }
+    } else if (existingPersonEntry) {
+        const { error } = await supabase
+            .from("person_balance_entries")
+            .delete()
+            .eq("id", existingPersonEntry.id)
+            .eq("user_id", user.id);
+
+        if (error) {
+            personSyncError = error;
+        }
+    }
+
+    if (personSyncError) {
+        console.error(
+            "Synchronize person balance error:",
+            personSyncError
+        );
+
+        await supabase
+            .from("transactions")
+            .update({
+                account_id:
+                    existingTransaction.account_id,
+                category_id:
+                    existingTransaction.category_id,
+                payee_id:
+                    existingTransaction.payee_id,
+                type: existingTransaction.type,
+                amount:
+                    existingTransaction.amount,
+                currency:
+                    existingTransaction.currency,
+                transaction_date:
+                    existingTransaction.transaction_date,
+                notes:
+                    existingTransaction.notes,
+            })
+            .eq("id", transactionId)
+            .eq("user_id", user.id);
+
+        return {
+            message:
+                "The person balance could not be synchronized, so the transaction changes were cancelled.",
+        };
+    }
+
+    revalidateTransactionPages(
+        transactionId,
+        input.personId ??
+        existingPersonEntry?.person_id
+    );
 
     redirect("/transactions");
 }
