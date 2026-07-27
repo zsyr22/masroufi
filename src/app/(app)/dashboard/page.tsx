@@ -36,14 +36,21 @@ import {
 
 import { cn } from "@/lib/utils";
 import { getTransactionDisplayTitle } from "@/features/transactions/utils/transaction-display";
+import { DashboardSubscriptions } from "@/features/dashboard/components/dashboard-subscriptions";
+import { getCurrentUserSubscriptions } from "@/features/subscriptions/services/subscription-service";
 
 export default async function DashboardPage() {
-  const [accounts, transactions, people] =
-    await Promise.all([
-      getCurrentUserAccounts(),
-      getCurrentUserTransactions(),
-      getCurrentUserPeopleBalances(),
-    ]);
+  const [
+    accounts,
+    transactions,
+    people,
+    subscriptions,
+  ] = await Promise.all([
+    getCurrentUserAccounts(),
+    getCurrentUserTransactions(),
+    getCurrentUserPeopleBalances(),
+    getCurrentUserSubscriptions(),
+  ]);
 
   const accountSummary =
     calculateAccountSummary(accounts);
@@ -244,6 +251,14 @@ export default async function DashboardPage() {
           people={people}
         />
       </section>
+
+      <section>
+        <DashboardSubscriptions
+          subscriptions={subscriptions}
+        />
+      </section>
+
+
     </div>
   );
 }
