@@ -19,12 +19,14 @@ import { cn } from "@/lib/utils";
 import { TransactionHistory } from "@/features/transactions/components/transaction-history";
 import { TransactionSearch } from "@/features/transactions/components/transaction-search";
 
+
 type TransactionsPageProps = {
   searchParams: Promise<{
     q?: string;
     date?: string;
     type?: string;
     account?: string;
+    page?: string;
   }>;
 };
 
@@ -32,8 +34,21 @@ export default async function TransactionsPage({
   searchParams,
 }: TransactionsPageProps) {
   const params = await searchParams;
+
   const searchQuery =
     params.q?.trim() ?? "";
+
+  const parsedPage = Number.parseInt(
+    params.page ?? "1",
+    10
+  );
+
+  const requestedPage =
+    Number.isFinite(parsedPage) &&
+      parsedPage > 0
+      ? parsedPage
+      : 1;
+
   const date = params.date ?? "";
 
   const type: TransactionType | "all" =
@@ -44,7 +59,10 @@ export default async function TransactionsPage({
 
   const accountId = params.account ?? "";
 
-  const [transactions, accounts] = await Promise.all([
+  const [
+    transactionResult,
+    accounts,
+  ] = await Promise.all([
     getCurrentUserTransactions({
       search:
         searchQuery || undefined,
@@ -52,9 +70,19 @@ export default async function TransactionsPage({
       type,
       accountId:
         accountId || undefined,
+      page: requestedPage,
+      pageSize: 25,
     }),
     getCurrentUserAccounts(),
   ]);
+
+  const {
+    transactions,
+    totalCount,
+    page,
+    pageSize,
+    totalPages,
+  } = transactionResult;
 
   const hasActiveFilters =
     Boolean(searchQuery) ||
@@ -118,6 +146,10 @@ export default async function TransactionsPage({
       ) : (
         <TransactionHistory
           transactions={transactions}
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          totalPages={totalPages}
         />
       )}
     </div>

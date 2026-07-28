@@ -42,9 +42,14 @@ import type { TransactionType } from "@/features/transactions/types/transaction"
 import { getTransactionDisplayTitle } from "@/features/transactions/utils/transaction-display";
 import { groupTransactionsByDate } from "@/features/transactions/utils/group-transactions-by-date";
 import { cn } from "@/lib/utils";
+import { TransactionPagination } from "@/features/transactions/components/transaction-pagination";
 
 type TransactionHistoryProps = {
     transactions: TransactionListItem[];
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
 };
 
 function formatAmount(
@@ -66,6 +71,10 @@ function formatAmount(
 
 export function TransactionHistory({
     transactions,
+    page,
+    pageSize,
+    totalCount,
+    totalPages,
 }: TransactionHistoryProps) {
     const [selectedIds, setSelectedIds] =
         useState<Set<string>>(
@@ -440,6 +449,12 @@ export function TransactionHistory({
                             );
                         }
                     )}
+                    <TransactionPagination
+                        page={page}
+                        pageSize={pageSize}
+                        totalCount={totalCount}
+                        totalPages={totalPages}
+                    />
                 </CardContent>
             </Card>
 

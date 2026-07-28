@@ -26,6 +26,16 @@ export type TransactionFilters = {
     type?: TransactionType | "all";
     accountId?: string;
     search?: string;
+    page?: number;
+    pageSize?: number;
+};
+
+export type PaginatedTransactions = {
+    transactions: TransactionListItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
 };
 
 function sanitizeSearchTerm(value: string): string {
@@ -37,7 +47,7 @@ function sanitizeSearchTerm(value: string): string {
 
 export async function getCurrentUserTransactions(
     filters: TransactionFilters = {}
-): Promise<TransactionListItem[]> {
+): Promise<PaginatedTransactions> {
     const supabase = await createClient();
 
     const {
@@ -45,59 +55,41 @@ export async function getCurrentUserTransactions(
         error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-        return [];
-    }
-
-    let query = supabase
-        .from("transactions")
-        .select(`
-            *,
-            accounts (
-                name
-            ),
-            categories (
-                name
-            ),
-            payees (
-                name
-            ),
-            person_balance_entries (
-                entry_type,
-                people (
-                    name
-                )
-            )
-        `)
-        .eq("user_id", user.id);
-
-    if (filters.date) {
-        query = query.eq(
-            "transaction_date",
-            filters.date
-        );
-    }
-
-    if (
-        filters.type &&
-        filters.type !== "all"
-    ) {
-        query = query.eq(
-            "type",
-            filters.type
-        );
-    }
-
-    if (filters.accountId) {
-        query = query.eq(
-            "account_id",
-            filters.accountId
-        );
-    }
-
-    const searchTerm = sanitizeSearchTerm(
-        filters.search ?? ""
+    const requestedPage = Math.max(
+        1,
+        Math.floor(filters.page ?? 1)
     );
+
+    const pageSize = Math.min(
+        100,
+        Math.max(
+            1,
+            Math.floor(
+                filters.pageSize ?? 25
+            )
+        )
+    );
+
+    if (userError || !user) {
+        return {
+            transactions: [],
+            totalCount: 0,
+            page: 1,
+            pageSize,
+            totalPages: 0,
+        };
+    }
+
+    const searchTerm =
+        sanitizeSearchTerm(
+            filters.search ?? ""
+        );
+
+    let accountIds: string[] = [];
+    let categoryIds: string[] = [];
+    let payeeIds: string[] = [];
+    let personTransactionIds: string[] =
+        [];
 
     if (searchTerm) {
         const searchPattern =
@@ -113,45 +105,62 @@ export async function getCurrentUserTransactions(
                 .from("accounts")
                 .select("id")
                 .eq("user_id", user.id)
-                .ilike("name", searchPattern),
+                .ilike(
+                    "name",
+                    searchPattern
+                ),
 
             supabase
                 .from("categories")
                 .select("id")
                 .eq("user_id", user.id)
-                .ilike("name", searchPattern),
+                .ilike(
+                    "name",
+                    searchPattern
+                ),
 
             supabase
                 .from("payees")
                 .select("id")
                 .eq("user_id", user.id)
-                .ilike("name", searchPattern),
+                .ilike(
+                    "name",
+                    searchPattern
+                ),
 
             supabase
                 .from("people")
                 .select("id")
                 .eq("user_id", user.id)
-                .ilike("name", searchPattern),
+                .ilike(
+                    "name",
+                    searchPattern
+                ),
         ]);
 
-        const accountIds = (
+        accountIds = (
             accountsResult.data ?? []
-        ).map((account) => account.id);
+        ).map(
+            (account) => account.id
+        );
 
-        const categoryIds = (
+        categoryIds = (
             categoriesResult.data ?? []
-        ).map((category) => category.id);
+        ).map(
+            (category) => category.id
+        );
 
-        const payeeIds = (
+        payeeIds = (
             payeesResult.data ?? []
-        ).map((payee) => payee.id);
+        ).map(
+            (payee) => payee.id
+        );
 
         const personIds = (
             peopleResult.data ?? []
-        ).map((person) => person.id);
-
-        let personTransactionIds:
-            string[] = [];
+        ).map(
+            (person) => person.id
+        );
 
         if (personIds.length > 0) {
             const {
@@ -161,9 +170,17 @@ export async function getCurrentUserTransactions(
                 .from(
                     "person_balance_entries"
                 )
-                .select("transaction_id")
-                .eq("user_id", user.id)
-                .in("person_id", personIds);
+                .select(
+                    "transaction_id"
+                )
+                .eq(
+                    "user_id",
+                    user.id
+                )
+                .in(
+                    "person_id",
+                    personIds
+                );
 
             if (personEntriesError) {
                 console.error(
@@ -201,70 +218,225 @@ export async function getCurrentUserTransactions(
                 ),
             ];
         }
-
-        const conditions: string[] = [
-            `notes.ilike.${searchPattern}`,
-        ];
-
-        if (accountIds.length > 0) {
-            conditions.push(
-                `account_id.in.(${accountIds.join(
-                    ","
-                )})`
-            );
-        }
-
-        if (categoryIds.length > 0) {
-            conditions.push(
-                `category_id.in.(${categoryIds.join(
-                    ","
-                )})`
-            );
-        }
-
-        if (payeeIds.length > 0) {
-            conditions.push(
-                `payee_id.in.(${payeeIds.join(
-                    ","
-                )})`
-            );
-        }
-
-        if (
-            personTransactionIds.length > 0
-        ) {
-            conditions.push(
-                `id.in.(${personTransactionIds.join(
-                    ","
-                )})`
-            );
-        }
-
-        const numericSearch = Number(
-            searchTerm.replace(/,/g, "")
-        );
-
-        if (
-            Number.isFinite(numericSearch) &&
-            numericSearch >= 0
-        ) {
-            conditions.push(
-                `amount.eq.${numericSearch}`
-            );
-        }
-
-        query = query.or(
-            conditions.join(",")
-        );
     }
 
-    const { data, error } = await query
-        .order("transaction_date", {
-            ascending: false,
+    function applyFilters<
+        T extends {
+            eq: (
+                column: string,
+                value: unknown
+            ) => T;
+            or: (
+                filters: string
+            ) => T;
+        }
+    >(inputQuery: T): T {
+        let filteredQuery =
+            inputQuery;
+
+        if (filters.date) {
+            filteredQuery =
+                filteredQuery.eq(
+                    "transaction_date",
+                    filters.date
+                );
+        }
+
+        if (
+            filters.type &&
+            filters.type !== "all"
+        ) {
+            filteredQuery =
+                filteredQuery.eq(
+                    "type",
+                    filters.type
+                );
+        }
+
+        if (filters.accountId) {
+            filteredQuery =
+                filteredQuery.eq(
+                    "account_id",
+                    filters.accountId
+                );
+        }
+
+        if (searchTerm) {
+            const searchPattern =
+                `%${searchTerm}%`;
+
+            const conditions: string[] =
+                [
+                    `notes.ilike.${searchPattern}`,
+                ];
+
+            if (
+                accountIds.length > 0
+            ) {
+                conditions.push(
+                    `account_id.in.(${accountIds.join(
+                        ","
+                    )})`
+                );
+            }
+
+            if (
+                categoryIds.length > 0
+            ) {
+                conditions.push(
+                    `category_id.in.(${categoryIds.join(
+                        ","
+                    )})`
+                );
+            }
+
+            if (
+                payeeIds.length > 0
+            ) {
+                conditions.push(
+                    `payee_id.in.(${payeeIds.join(
+                        ","
+                    )})`
+                );
+            }
+
+            if (
+                personTransactionIds.length >
+                0
+            ) {
+                conditions.push(
+                    `id.in.(${personTransactionIds.join(
+                        ","
+                    )})`
+                );
+            }
+
+            const numericSearch =
+                Number(
+                    searchTerm.replace(
+                        /,/g,
+                        ""
+                    )
+                );
+
+            if (
+                Number.isFinite(
+                    numericSearch
+                ) &&
+                numericSearch >= 0
+            ) {
+                conditions.push(
+                    `amount.eq.${numericSearch}`
+                );
+            }
+
+            filteredQuery =
+                filteredQuery.or(
+                    conditions.join(",")
+                );
+        }
+
+        return filteredQuery;
+    }
+
+    let countQuery = supabase
+        .from("transactions")
+        .select("id", {
+            count: "exact",
+            head: true,
         })
-        .order("created_at", {
-            ascending: false,
-        });
+        .eq("user_id", user.id);
+
+    countQuery =
+        applyFilters(countQuery);
+
+    const {
+        count,
+        error: countError,
+    } = await countQuery;
+
+    if (countError) {
+        console.error(
+            "Count transactions error:",
+            {
+                message:
+                    countError.message,
+                details:
+                    countError.details,
+                hint: countError.hint,
+                code: countError.code,
+            }
+        );
+
+        return {
+            transactions: [],
+            totalCount: 0,
+            page: requestedPage,
+            pageSize,
+            totalPages: 0,
+        };
+    }
+
+    const totalCount = count ?? 0;
+
+    const totalPages =
+        totalCount === 0
+            ? 0
+            : Math.ceil(
+                totalCount / pageSize
+            );
+
+    const page =
+        totalPages === 0
+            ? 1
+            : Math.min(
+                requestedPage,
+                totalPages
+            );
+
+    const from =
+        (page - 1) * pageSize;
+
+    const to =
+        from + pageSize - 1;
+
+    let dataQuery = supabase
+        .from("transactions")
+        .select(`
+            *,
+            accounts (
+                name
+            ),
+            categories (
+                name
+            ),
+            payees (
+                name
+            ),
+            person_balance_entries (
+                entry_type,
+                people (
+                    name
+                )
+            )
+        `)
+        .eq("user_id", user.id);
+
+    dataQuery =
+        applyFilters(dataQuery);
+
+    const { data, error } =
+        await dataQuery
+            .order(
+                "transaction_date",
+                {
+                    ascending: false,
+                }
+            )
+            .order("created_at", {
+                ascending: false,
+            })
+            .range(from, to);
 
     if (error) {
         console.error(
@@ -277,12 +449,24 @@ export async function getCurrentUserTransactions(
             }
         );
 
-        return [];
+        return {
+            transactions: [],
+            totalCount,
+            page,
+            pageSize,
+            totalPages,
+        };
     }
 
-    return (
-        data ?? []
-    ) as TransactionListItem[];
+    return {
+        transactions:
+            (data ??
+                []) as TransactionListItem[],
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+    };
 }
 
 export async function getCurrentUserTransactionById(

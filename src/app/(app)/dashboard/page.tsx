@@ -42,7 +42,7 @@ import { getCurrentUserSubscriptions } from "@/features/subscriptions/services/s
 export default async function DashboardPage() {
   const [
     accounts,
-    transactions,
+    transactionResult,
     people,
     subscriptions,
   ] = await Promise.all([
@@ -51,7 +51,8 @@ export default async function DashboardPage() {
     getCurrentUserPeopleBalances(),
     getCurrentUserSubscriptions(),
   ]);
-
+  const transactions =
+    transactionResult.transactions;
   const accountSummary =
     calculateAccountSummary(accounts);
 

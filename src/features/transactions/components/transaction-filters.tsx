@@ -117,6 +117,7 @@ export function TransactionFilters({
 
         // تنظيف أي رابط قديم ما زال يحتوي month
         params.delete("month");
+        params.delete("page");
 
         navigate(params);
     }
@@ -128,6 +129,7 @@ export function TransactionFilters({
 
         params.delete(key);
         params.delete("month");
+        params.delete("page");
 
         navigate(params);
     }

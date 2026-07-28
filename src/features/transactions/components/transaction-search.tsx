@@ -67,7 +67,7 @@ export function TransactionSearch({
                 } else {
                     params.delete("q");
                 }
-
+                params.delete("page");
                 startTransition(() => {
                     const query =
                         params.toString();
@@ -105,7 +105,7 @@ export function TransactionSearch({
             );
 
         params.delete("q");
-
+        params.delete("page");
         startTransition(() => {
             const query =
                 params.toString();

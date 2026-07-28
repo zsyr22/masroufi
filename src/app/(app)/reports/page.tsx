@@ -35,11 +35,13 @@ import { getCurrentUserTransactions } from "@/features/transactions/services/tra
 import { getTransactionDisplayTitle } from "@/features/transactions/utils/transaction-display";
 
 export default async function ReportsPage() {
-  const [transactions, subscriptions] =
+  const [transactionResult, subscriptions] =
     await Promise.all([
       getCurrentUserTransactions(),
       getCurrentUserSubscriptions(),
     ]);
+  const transactions =
+    transactionResult.transactions;
 
   const summary =
     calculateReportsSummary(
