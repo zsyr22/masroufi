@@ -1,12 +1,6 @@
 "use client";
 
 import {
-    useEffect,
-    useState,
-    useTransition,
-} from "react";
-import {
-    Loader2,
     Search,
     X,
 } from "lucide-react";
@@ -15,16 +9,25 @@ import {
     useRouter,
     useSearchParams,
 } from "next/navigation";
+import {
+    FormEvent,
+    useEffect,
+    useRef,
+    useState,
+    useTransition,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type TransactionSearchProps = {
-    initialQuery: string;
+    initialQuery?: string;
 };
 
+const SEARCH_DELAY = 700;
+
 export function TransactionSearch({
-    initialQuery,
+    initialQuery = "",
 }: TransactionSearchProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -37,64 +40,83 @@ export function TransactionSearch({
     const [isPending, startTransition] =
         useTransition();
 
-    useEffect(() => {
-        setValue(initialQuery);
-    }, [initialQuery]);
+    const isFirstRender = useRef(true);
+    const lastAppliedQuery =
+        useRef(initialQuery.trim());
 
-    useEffect(() => {
-        const timeout = window.setTimeout(
-            () => {
-                const normalizedValue =
-                    value.trim();
+    function applySearch(
+        rawValue: string
+    ) {
+        const normalizedValue =
+            rawValue.trim();
 
-                if (
-                    normalizedValue ===
-                    initialQuery
-                ) {
-                    return;
+        if (
+            normalizedValue ===
+            lastAppliedQuery.current
+        ) {
+            return;
+        }
+
+        const params =
+            new URLSearchParams(
+                searchParams.toString()
+            );
+
+        if (normalizedValue) {
+            params.set(
+                "q",
+                normalizedValue
+            );
+        } else {
+            params.delete("q");
+        }
+
+        params.delete("page");
+
+        const query = params.toString();
+
+        lastAppliedQuery.current =
+            normalizedValue;
+
+        startTransition(() => {
+            router.replace(
+                query
+                    ? `${pathname}?${query}`
+                    : pathname,
+                {
+                    scroll: false,
                 }
+            );
+        });
+    }
 
-                const params =
-                    new URLSearchParams(
-                        searchParams.toString()
-                    );
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
 
-                if (normalizedValue) {
-                    params.set(
-                        "q",
-                        normalizedValue
-                    );
-                } else {
-                    params.delete("q");
-                }
-                params.delete("page");
-                startTransition(() => {
-                    const query =
-                        params.toString();
-
-                    router.replace(
-                        query
-                            ? `${pathname}?${query}`
-                            : pathname,
-                        {
-                            scroll: false,
-                        }
-                    );
-                });
-            },
-            350
-        );
+        const timeoutId =
+            window.setTimeout(() => {
+                applySearch(value);
+            }, SEARCH_DELAY);
 
         return () => {
-            window.clearTimeout(timeout);
+            window.clearTimeout(
+                timeoutId
+            );
         };
-    }, [
-        value,
-        initialQuery,
-        pathname,
-        router,
-        searchParams,
-    ]);
+        // applySearch deliberately uses the latest
+        // searchParams from the current render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
+
+    function handleSubmit(
+        event: FormEvent<HTMLFormElement>
+    ) {
+        event.preventDefault();
+        applySearch(value);
+    }
 
     function clearSearch() {
         setValue("");
@@ -106,10 +128,12 @@ export function TransactionSearch({
 
         params.delete("q");
         params.delete("page");
-        startTransition(() => {
-            const query =
-                params.toString();
 
+        lastAppliedQuery.current = "";
+
+        const query = params.toString();
+
+        startTransition(() => {
             router.replace(
                 query
                     ? `${pathname}?${query}`
@@ -122,12 +146,15 @@ export function TransactionSearch({
     }
 
     return (
-        <div className="rounded-2xl border bg-card p-4">
+        <form
+            onSubmit={handleSubmit}
+            className="space-y-2"
+        >
             <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
                 <Input
-                    type="search"
+                    type="text"
                     value={value}
                     onChange={(event) =>
                         setValue(
@@ -135,36 +162,40 @@ export function TransactionSearch({
                         )
                     }
                     placeholder="Search by store, category, account, person, notes, or amount..."
-                    aria-label="Search transactions"
-                    className="h-11 pl-10 pr-20"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="h-12 pl-11 pr-24"
                 />
 
                 <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-                    {isPending ? (
-                        <Loader2 className="mr-1 size-4 animate-spin text-muted-foreground" />
-                    ) : null}
+                    {isPending && (
+                        <span className="px-2 text-xs text-muted-foreground">
+                            Searching…
+                        </span>
+                    )}
 
-                    {value ? (
+                    {value.length > 0 && (
                         <Button
                             type="button"
                             variant="ghost"
-                            size="icon-sm"
+                            size="icon"
                             onClick={
                                 clearSearch
                             }
-                            aria-label="Clear transaction search"
+                            aria-label="Clear search"
+                            className="size-8"
                         >
                             <X className="size-4" />
                         </Button>
-                    ) : null}
+                    )}
                 </div>
             </div>
 
-            <p className="mt-2 text-xs text-muted-foreground">
-                Search updates automatically
-                while you type and works together
-                with the filters below.
+            <p className="text-xs text-muted-foreground">
+                Search runs after you stop
+                typing. Press Enter to search
+                immediately.
             </p>
-        </div>
+        </form>
     );
 }

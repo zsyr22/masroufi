@@ -80,145 +80,141 @@ export async function getCurrentUserTransactions(
         };
     }
 
-    const searchTerm =
-        sanitizeSearchTerm(
-            filters.search ?? ""
-        );
+    const searchTerm = sanitizeSearchTerm(
+        filters.search ?? ""
+    );
 
-    let accountIds: string[] = [];
-    let categoryIds: string[] = [];
-    let payeeIds: string[] = [];
-    let personTransactionIds: string[] =
-        [];
+    const searchTokens = searchTerm
+        .split(" ")
+        .map((token) => token.trim())
+        .filter(Boolean);
 
-    if (searchTerm) {
-        const searchPattern =
-            `%${searchTerm}%`;
+    type SearchTokenMatch = {
+        token: string;
+        accountIds: string[];
+        categoryIds: string[];
+        payeeIds: string[];
+        personTransactionIds: string[];
+    };
 
-        const [
-            accountsResult,
-            categoriesResult,
-            payeesResult,
-            peopleResult,
-        ] = await Promise.all([
-            supabase
-                .from("accounts")
-                .select("id")
-                .eq("user_id", user.id)
-                .ilike(
-                    "name",
-                    searchPattern
-                ),
+    const searchTokenMatches: SearchTokenMatch[] =
+        await Promise.all(
+            searchTokens.map(async (token) => {
+                const searchPattern = `%${token}%`;
 
-            supabase
-                .from("categories")
-                .select("id")
-                .eq("user_id", user.id)
-                .ilike(
-                    "name",
-                    searchPattern
-                ),
+                const [
+                    accountsResult,
+                    categoriesResult,
+                    payeesResult,
+                    peopleResult,
+                ] = await Promise.all([
+                    supabase
+                        .from("accounts")
+                        .select("id")
+                        .eq("user_id", user.id)
+                        .ilike("name", searchPattern),
 
-            supabase
-                .from("payees")
-                .select("id")
-                .eq("user_id", user.id)
-                .ilike(
-                    "name",
-                    searchPattern
-                ),
+                    supabase
+                        .from("categories")
+                        .select("id")
+                        .eq("user_id", user.id)
+                        .ilike("name", searchPattern),
 
-            supabase
-                .from("people")
-                .select("id")
-                .eq("user_id", user.id)
-                .ilike(
-                    "name",
-                    searchPattern
-                ),
-        ]);
+                    supabase
+                        .from("payees")
+                        .select("id")
+                        .eq("user_id", user.id)
+                        .ilike("name", searchPattern),
 
-        accountIds = (
-            accountsResult.data ?? []
-        ).map(
-            (account) => account.id
-        );
+                    supabase
+                        .from("people")
+                        .select("id")
+                        .eq("user_id", user.id)
+                        .ilike("name", searchPattern),
+                ]);
 
-        categoryIds = (
-            categoriesResult.data ?? []
-        ).map(
-            (category) => category.id
-        );
+                const searchErrors = [
+                    accountsResult.error,
+                    categoriesResult.error,
+                    payeesResult.error,
+                    peopleResult.error,
+                ].filter(Boolean);
 
-        payeeIds = (
-            payeesResult.data ?? []
-        ).map(
-            (payee) => payee.id
-        );
+                if (searchErrors.length > 0) {
+                    console.error(
+                        `Transaction search lookup error for token "${token}":`,
+                        searchErrors
+                    );
+                }
 
-        const personIds = (
-            peopleResult.data ?? []
-        ).map(
-            (person) => person.id
-        );
+                const accountIds = (
+                    accountsResult.data ?? []
+                ).map((account) => account.id);
 
-        if (personIds.length > 0) {
-            const {
-                data: personEntries,
-                error: personEntriesError,
-            } = await supabase
-                .from(
-                    "person_balance_entries"
-                )
-                .select(
-                    "transaction_id"
-                )
-                .eq(
-                    "user_id",
-                    user.id
-                )
-                .in(
-                    "person_id",
-                    personIds
-                );
+                const categoryIds = (
+                    categoriesResult.data ?? []
+                ).map((category) => category.id);
 
-            if (personEntriesError) {
-                console.error(
-                    "Search linked person transactions error:",
-                    {
-                        message:
-                            personEntriesError.message,
-                        details:
-                            personEntriesError.details,
-                        hint:
-                            personEntriesError.hint,
-                        code:
-                            personEntriesError.code,
+                const payeeIds = (
+                    payeesResult.data ?? []
+                ).map((payee) => payee.id);
+
+                const personIds = (
+                    peopleResult.data ?? []
+                ).map((person) => person.id);
+
+                let personTransactionIds: string[] = [];
+
+                if (personIds.length > 0) {
+                    const {
+                        data: personEntries,
+                        error: personEntriesError,
+                    } = await supabase
+                        .from("person_balance_entries")
+                        .select("transaction_id")
+                        .eq("user_id", user.id)
+                        .in("person_id", personIds);
+
+                    if (personEntriesError) {
+                        console.error(
+                            `Person transaction search error for token "${token}":`,
+                            {
+                                message:
+                                    personEntriesError.message,
+                                details:
+                                    personEntriesError.details,
+                                hint: personEntriesError.hint,
+                                code: personEntriesError.code,
+                            }
+                        );
                     }
-                );
-            }
 
-            personTransactionIds = [
-                ...new Set(
-                    (
-                        personEntries ?? []
-                    )
-                        .map(
-                            (entry) =>
-                                entry.transaction_id
-                        )
-                        .filter(
-                            (
-                                transactionId
-                            ): transactionId is string =>
-                                Boolean(
-                                    transactionId
+                    personTransactionIds = [
+                        ...new Set(
+                            (personEntries ?? [])
+                                .map(
+                                    (entry) =>
+                                        entry.transaction_id
                                 )
-                        )
-                ),
-            ];
-        }
-    }
+                                .filter(
+                                    (
+                                        transactionId
+                                    ): transactionId is string =>
+                                        Boolean(transactionId)
+                                )
+                        ),
+                    ];
+                }
+
+                return {
+                    token,
+                    accountIds,
+                    categoryIds,
+                    payeeIds,
+                    personTransactionIds,
+                };
+            })
+        );
 
     function applyFilters<
         T extends {
@@ -261,68 +257,57 @@ export async function getCurrentUserTransactions(
                 );
         }
 
-        if (searchTerm) {
-            const searchPattern =
-                `%${searchTerm}%`;
+        for (const tokenMatch of searchTokenMatches) {
+            const conditions: string[] = [];
 
-            const conditions: string[] =
-                [
-                    `notes.ilike.${searchPattern}`,
-                ];
+            const tokenPattern =
+                `%${tokenMatch.token}%`;
 
-            if (
-                accountIds.length > 0
-            ) {
+            conditions.push(
+                `notes.ilike.${tokenPattern}`
+            );
+
+            if (tokenMatch.accountIds.length > 0) {
                 conditions.push(
-                    `account_id.in.(${accountIds.join(
+                    `account_id.in.(${tokenMatch.accountIds.join(
+                        ","
+                    )})`
+                );
+            }
+
+            if (tokenMatch.categoryIds.length > 0) {
+                conditions.push(
+                    `category_id.in.(${tokenMatch.categoryIds.join(
+                        ","
+                    )})`
+                );
+            }
+
+            if (tokenMatch.payeeIds.length > 0) {
+                conditions.push(
+                    `payee_id.in.(${tokenMatch.payeeIds.join(
                         ","
                     )})`
                 );
             }
 
             if (
-                categoryIds.length > 0
-            ) {
-                conditions.push(
-                    `category_id.in.(${categoryIds.join(
-                        ","
-                    )})`
-                );
-            }
-
-            if (
-                payeeIds.length > 0
-            ) {
-                conditions.push(
-                    `payee_id.in.(${payeeIds.join(
-                        ","
-                    )})`
-                );
-            }
-
-            if (
-                personTransactionIds.length >
+                tokenMatch.personTransactionIds.length >
                 0
             ) {
                 conditions.push(
-                    `id.in.(${personTransactionIds.join(
+                    `id.in.(${tokenMatch.personTransactionIds.join(
                         ","
                     )})`
                 );
             }
 
-            const numericSearch =
-                Number(
-                    searchTerm.replace(
-                        /,/g,
-                        ""
-                    )
-                );
+            const numericSearch = Number(
+                tokenMatch.token.replace(/,/g, "")
+            );
 
             if (
-                Number.isFinite(
-                    numericSearch
-                ) &&
+                Number.isFinite(numericSearch) &&
                 numericSearch >= 0
             ) {
                 conditions.push(
@@ -330,12 +315,10 @@ export async function getCurrentUserTransactions(
                 );
             }
 
-            filteredQuery =
-                filteredQuery.or(
-                    conditions.join(",")
-                );
+            filteredQuery = filteredQuery.or(
+                conditions.join(",")
+            );
         }
-
         return filteredQuery;
     }
 
