@@ -57,7 +57,7 @@ export function AccountCard({
     const Icon = details.icon;
 
     return (
-        <Card className="group overflow-hidden border-border/70 transition-colors hover:border-primary/30">
+        <Card className="group overflow-hidden border-blue-500/15 bg-gradient-to-br from-blue-500/6 via-card to-transparent transition-colors hover:border-blue-500/35">
             <CardHeader className="flex flex-row items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

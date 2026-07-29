@@ -29,6 +29,8 @@ function revalidateAccountPages() {
     revalidatePath("/dashboard");
     revalidatePath("/transactions");
     revalidatePath("/transactions/new");
+    revalidatePath("/transfers");
+    revalidatePath("/transfers/new");
 }
 
 export async function createAccount(
@@ -196,20 +198,62 @@ export async function updateAccount(
         };
     }
 
-    const hasTransactions =
-        (transactionCount ?? 0) > 0;
+    const {
+        count: outgoingTransferCount,
+        error: outgoingTransferCountError,
+    } = await supabase
+        .from("transfers")
+        .select("id", {
+            count: "exact",
+            head: true,
+        })
+        .eq(
+            "from_account_id",
+            input.accountId
+        )
+        .eq("user_id", user.id);
+
+    const {
+        count: incomingTransferCount,
+        error: incomingTransferCountError,
+    } = await supabase
+        .from("transfers")
+        .select("id", {
+            count: "exact",
+            head: true,
+        })
+        .eq(
+            "to_account_id",
+            input.accountId
+        )
+        .eq("user_id", user.id);
 
     if (
-        hasTransactions &&
+        outgoingTransferCountError ||
+        incomingTransferCountError
+    ) {
+        return {
+            message:
+                "The account transfers could not be checked.",
+        };
+    }
+
+    const hasFinancialActivity =
+        (transactionCount ?? 0) > 0 ||
+        (outgoingTransferCount ?? 0) > 0 ||
+        (incomingTransferCount ?? 0) > 0;
+
+    if (
+        hasFinancialActivity &&
         input.currency !==
         existingAccount.currency
     ) {
         return {
             message:
-                "The currency cannot be changed because this account already has transactions.",
+                "The currency cannot be changed because this account already has transactions or transfers.",
             fieldErrors: {
                 currency: [
-                    "Currency is locked for accounts with transactions.",
+                    "Currency is locked for accounts with financial activity.",
                 ],
             },
         };
@@ -362,13 +406,58 @@ export async function deleteAccount(
                 "The account transactions could not be checked.",
         };
     }
+    const {
+        count: outgoingTransferCount,
+        error: outgoingTransferError,
+    } = await supabase
+        .from("transfers")
+        .select("id", {
+            count: "exact",
+            head: true,
+        })
+        .eq(
+            "from_account_id",
+            accountId
+        )
+        .eq("user_id", user.id);
 
-    if ((transactionCount ?? 0) > 0) {
+    const {
+        count: incomingTransferCount,
+        error: incomingTransferError,
+    } = await supabase
+        .from("transfers")
+        .select("id", {
+            count: "exact",
+            head: true,
+        })
+        .eq(
+            "to_account_id",
+            accountId
+        )
+        .eq("user_id", user.id);
+
+    if (
+        outgoingTransferError ||
+        incomingTransferError
+    ) {
         return {
             message:
-                "This account has transactions and cannot be deleted. Archive it instead.",
+                "The account transfers could not be checked.",
         };
     }
+    const hasFinancialActivity =
+        (transactionCount ?? 0) > 0 ||
+        (outgoingTransferCount ?? 0) > 0 ||
+        (incomingTransferCount ?? 0) > 0;
+
+    if (hasFinancialActivity) {
+        return {
+            message:
+                "This account has transactions or transfers and cannot be deleted. Archive it instead.",
+        };
+    }
+
+
 
     const { error } = await supabase
         .from("accounts")

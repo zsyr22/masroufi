@@ -42,7 +42,7 @@ export function CategoryList({
                 </p>
             </div>
 
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-orange-500/15 bg-gradient-to-br from-orange-500/6 via-card to-transparent">
                 <CardContent className="divide-y divide-border p-0">
                     {categories.map((category) => (
                         <div

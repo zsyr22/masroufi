@@ -33,7 +33,7 @@ function SummaryCard({
     icon: Icon,
 }: SummaryCardProps) {
     return (
-        <Card className="border-border/70">
+        <Card className="border-blue-500/15 bg-gradient-to-br from-blue-500/6 via-card to-transparent">
             <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
                 <div className="space-y-1">
                     <CardTitle className="text-sm font-medium text-muted-foreground">

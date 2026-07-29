@@ -92,3 +92,62 @@ export async function logout() {
     revalidatePath("/", "layout");
     redirect("/login");
 }
+export type UpdatePasswordActionState = {
+    success?: boolean;
+    message?: string;
+    fieldErrors?: {
+        password?: string[];
+        confirmPassword?: string[];
+    };
+};
+
+export async function updatePassword(
+    _previousState: UpdatePasswordActionState,
+    formData: FormData
+): Promise<UpdatePasswordActionState> {
+    const password = String(formData.get("password") ?? "");
+    const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+    const fieldErrors: UpdatePasswordActionState["fieldErrors"] = {};
+
+    if (password.length < 8) {
+        fieldErrors.password = ["Password must contain at least 8 characters."];
+    }
+
+    if (password !== confirmPassword) {
+        fieldErrors.confirmPassword = ["Passwords do not match."];
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+        return {
+            message: "Please review the highlighted fields.",
+            fieldErrors,
+        };
+    }
+
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return {
+            message: "Your session expired. Please sign in again.",
+        };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+        return {
+            message: error.message || "The password could not be updated.",
+        };
+    }
+
+    return {
+        success: true,
+        message: "Password updated successfully.",
+    };
+}

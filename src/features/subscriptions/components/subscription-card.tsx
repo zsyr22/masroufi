@@ -148,7 +148,7 @@ export function SubscriptionCard({
         );
 
     return (
-        <Card className="border-border/70">
+        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/7 via-card to-transparent">
             <CardContent className="p-5">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">

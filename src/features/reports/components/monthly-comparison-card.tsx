@@ -24,7 +24,7 @@ export function MonthlyComparisonCard({
     );
 
     return (
-        <Card>
+        <Card className="border-emerald-500/15 bg-gradient-to-br from-emerald-500/6 via-card to-transparent">
             <CardHeader>
                 <CardTitle className="text-base">
                     Last 6 months

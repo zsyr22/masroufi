@@ -164,7 +164,7 @@ export function TransactionSearch({
                     placeholder="Search by store, category, account, person, notes, or amount..."
                     autoComplete="off"
                     spellCheck={false}
-                    className="h-12 pl-11 pr-24"
+                    className="h-12 border-emerald-500/20 bg-emerald-500/5 pl-11 pr-24 focus-visible:ring-emerald-500/30"
                 />
 
                 <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">

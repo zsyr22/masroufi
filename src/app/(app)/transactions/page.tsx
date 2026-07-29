@@ -124,9 +124,9 @@ export default async function TransactionsPage({
       <TransactionFilterSummary transactions={transactions} />
 
       {transactions.length === 0 ? (
-        <Card className="border-dashed bg-card/50">
+        <Card className="border-dashed border-emerald-500/25 bg-emerald-500/5">
           <CardContent className="flex min-h-80 flex-col items-center justify-center text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-500">
               <ReceiptText className="size-6" />
             </div>
 

@@ -10,168 +10,213 @@ type AccountTransactionRow = {
     amount: number;
 };
 
-export async function getCurrentUserAccounts(): Promise<
-    AccountWithBalance[]
-> {
-    const supabase = await createClient();
+type AccountTransferRow = {
+    from_account_id: string;
+    to_account_id: string;
+    amount: number;
+};
 
-    const {
-        data: { user },
-        error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-        return [];
-    }
-
-    const [
-        { data: accountsData, error: accountsError },
-        { data: transactionsData, error: transactionsError },
-    ] = await Promise.all([
-        supabase
-            .from("accounts")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("is_active", true)
-            .order("created_at", {
-                ascending: true,
-            }),
-
-        supabase
-            .from("transactions")
-            .select("account_id, type, amount")
-            .eq("user_id", user.id),
-    ]);
-
-    if (accountsError) {
-        console.error("Load accounts error:", accountsError);
-        return [];
-    }
-
-    if (transactionsError) {
-        console.error(
-            "Load account transactions error:",
-            transactionsError
-        );
-    }
-
-    const accounts = (accountsData ?? []) as Account[];
-    const transactions =
-        (transactionsData ?? []) as AccountTransactionRow[];
-
-    const changesByAccount = new Map<string, number>();
-
-    for (const transaction of transactions) {
-        const currentChange =
-            changesByAccount.get(transaction.account_id) ?? 0;
-
-        const amount = Number(transaction.amount);
-
-        const signedAmount =
-            transaction.type === "income" ? amount : -amount;
-
-        changesByAccount.set(
-            transaction.account_id,
-            currentChange + signedAmount
-        );
-    }
-
-    return accounts.map((account) => ({
-        ...account,
-        current_balance:
-            Number(account.opening_balance) +
-            (changesByAccount.get(account.id) ?? 0),
-    }));
-}
-export async function getCurrentUserArchivedAccounts(): Promise<
-    AccountWithBalance[]
-> {
-    const supabase = await createClient();
-
-    const {
-        data: { user },
-        error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-        return [];
-    }
-
-    const [
-        { data: accountsData, error: accountsError },
-        { data: transactionsData, error: transactionsError },
-    ] = await Promise.all([
-        supabase
-            .from("accounts")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("is_active", false)
-            .order("updated_at", {
-                ascending: false,
-            }),
-
-        supabase
-            .from("transactions")
-            .select("account_id, type, amount")
-            .eq("user_id", user.id),
-    ]);
-
-    if (accountsError) {
-        console.error("Load archived accounts error:", {
-            message: accountsError.message,
-            details: accountsError.details,
-            hint: accountsError.hint,
-            code: accountsError.code,
-        });
-
-        return [];
-    }
-
-    if (transactionsError) {
-        console.error(
-            "Load archived account transactions error:",
-            {
-                message: transactionsError.message,
-                details: transactionsError.details,
-                hint: transactionsError.hint,
-                code: transactionsError.code,
-            }
-        );
-    }
-
-    const accounts =
-        (accountsData ?? []) as Account[];
-
-    const transactions =
-        (transactionsData ?? []) as AccountTransactionRow[];
-
+function calculateAccountsWithBalances({
+    accounts,
+    transactions,
+    transfers,
+}: {
+    accounts: Account[];
+    transactions: AccountTransactionRow[];
+    transfers: AccountTransferRow[];
+}): AccountWithBalance[] {
     const changesByAccount =
         new Map<string, number>();
 
-    for (const transaction of transactions) {
+    function addBalanceChange(
+        accountId: string,
+        change: number
+    ) {
         const currentChange =
-            changesByAccount.get(
-                transaction.account_id
-            ) ?? 0;
+            changesByAccount.get(accountId) ??
+            0;
 
-        const amount =
-            Number(transaction.amount);
+        changesByAccount.set(
+            accountId,
+            currentChange + change
+        );
+    }
+
+    for (const transaction of transactions) {
+        const amount = Number(
+            transaction.amount
+        );
 
         const signedAmount =
             transaction.type === "income"
                 ? amount
                 : -amount;
 
-        changesByAccount.set(
+        addBalanceChange(
             transaction.account_id,
-            currentChange + signedAmount
+            signedAmount
+        );
+    }
+
+    for (const transfer of transfers) {
+        const amount = Number(
+            transfer.amount
+        );
+
+        addBalanceChange(
+            transfer.from_account_id,
+            -amount
+        );
+
+        addBalanceChange(
+            transfer.to_account_id,
+            amount
         );
     }
 
     return accounts.map((account) => ({
         ...account,
         current_balance:
-            Number(account.opening_balance) +
-            (changesByAccount.get(account.id) ?? 0),
+            Number(
+                account.opening_balance
+            ) +
+            (changesByAccount.get(
+                account.id
+            ) ?? 0),
     }));
+}
+
+async function loadAccountBalanceData({
+    active,
+}: {
+    active: boolean;
+}): Promise<AccountWithBalance[]> {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return [];
+    }
+
+    const [
+        {
+            data: accountsData,
+            error: accountsError,
+        },
+        {
+            data: transactionsData,
+            error: transactionsError,
+        },
+        {
+            data: transfersData,
+            error: transfersError,
+        },
+    ] = await Promise.all([
+        supabase
+            .from("accounts")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("is_active", active)
+            .order(
+                active
+                    ? "created_at"
+                    : "updated_at",
+                {
+                    ascending: active,
+                }
+            ),
+
+        supabase
+            .from("transactions")
+            .select(
+                "account_id, type, amount"
+            )
+            .eq("user_id", user.id),
+
+        supabase
+            .from("transfers")
+            .select(
+                "from_account_id, to_account_id, amount"
+            )
+            .eq("user_id", user.id),
+    ]);
+
+    if (accountsError) {
+        console.error(
+            active
+                ? "Load accounts error:"
+                : "Load archived accounts error:",
+            {
+                message:
+                    accountsError.message,
+                details:
+                    accountsError.details,
+                hint: accountsError.hint,
+                code: accountsError.code,
+            }
+        );
+
+        return [];
+    }
+
+    if (transactionsError) {
+        console.error(
+            "Load account transactions error:",
+            {
+                message:
+                    transactionsError.message,
+                details:
+                    transactionsError.details,
+                hint:
+                    transactionsError.hint,
+                code:
+                    transactionsError.code,
+            }
+        );
+    }
+
+    if (transfersError) {
+        console.error(
+            "Load account transfers error:",
+            {
+                message:
+                    transfersError.message,
+                details:
+                    transfersError.details,
+                hint: transfersError.hint,
+                code: transfersError.code,
+            }
+        );
+    }
+
+    return calculateAccountsWithBalances({
+        accounts:
+            (accountsData ?? []) as Account[],
+        transactions:
+            (transactionsData ??
+                []) as AccountTransactionRow[],
+        transfers:
+            (transfersData ??
+                []) as AccountTransferRow[],
+    });
+}
+
+export async function getCurrentUserAccounts(): Promise<
+    AccountWithBalance[]
+> {
+    return loadAccountBalanceData({
+        active: true,
+    });
+}
+
+export async function getCurrentUserArchivedAccounts(): Promise<
+    AccountWithBalance[]
+> {
+    return loadAccountBalanceData({
+        active: false,
+    });
 }

@@ -145,7 +145,7 @@ export function TransactionFilters({
         Boolean(accountId);
 
     return (
-        <div className="space-y-4 rounded-2xl border bg-card p-4">
+        <div className="space-y-4 rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/7 via-card to-transparent p-4">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-2">
                     <label

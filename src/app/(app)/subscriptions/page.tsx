@@ -104,7 +104,7 @@ export default async function SubscriptionsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/6 via-card to-transparent">
           <CardContent className="p-5">
             <p className="text-sm text-muted-foreground">
               Active subscriptions
@@ -116,7 +116,7 @@ export default async function SubscriptionsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/6 via-card to-transparent">
           <CardContent className="p-5">
             <p className="text-sm text-muted-foreground">
               Monthly equivalent
@@ -155,7 +155,7 @@ export default async function SubscriptionsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/6 via-card to-transparent">
           <CardContent className="p-5">
             <p className="text-sm text-muted-foreground">
               Yearly equivalent

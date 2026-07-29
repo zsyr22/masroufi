@@ -1,0 +1,7 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { storeSchema } from "@/features/stores/schemas/store-schema";
+import { createClient } from "@/lib/supabase/server";
+export type StoreActionState={message?:string;success?:boolean;fieldErrors?:Record<string,string[]>};
+export async function createStore(_:StoreActionState,formData:FormData):Promise<StoreActionState>{ const parsed=storeSchema.safeParse({name:formData.get("name"),defaultChannel:formData.get("defaultChannel"),website:formData.get("website")||undefined,notes:formData.get("notes")||undefined,favorite:formData.get("favorite")==="true"}); if(!parsed.success)return{message:"Review the store details.",fieldErrors:parsed.error.flatten().fieldErrors as Record<string,string[]>}; const supabase=await createClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return{message:"Please sign in again."}; const v=parsed.data; const {error}=await supabase.from("stores").insert({user_id:user.id,name:v.name,default_channel:v.defaultChannel,website:v.website||null,notes:v.notes||null,is_favorite:v.favorite}); if(error)return{message:error.code==="23505"?"This store already exists.":error.message}; revalidatePath("/stores");revalidatePath("/purchases/new");return{success:true}; }
+export async function deleteStore(id:string):Promise<void>{const supabase=await createClient();await supabase.from("stores").update({is_active:false}).eq("id",id);revalidatePath("/stores");revalidatePath("/purchases/new");}

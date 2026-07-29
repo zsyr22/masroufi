@@ -80,7 +80,7 @@ export function TransactionFilterSummary({
                 const Icon = item.icon;
 
                 return (
-                    <Card key={item.label}>
+                    <Card key={item.label} className="border-emerald-500/15 bg-gradient-to-br from-emerald-500/6 via-card to-transparent">
                         <CardContent className="flex items-center gap-4 p-5">
                             <div
                                 className={cn(

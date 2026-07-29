@@ -277,7 +277,7 @@ export function AddTransactionForm({
     }
 
     return (
-        <Card className="border-border/70">
+        <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/7 via-card to-transparent">
             <CardContent className="p-6">
                 <form
                     action={formAction}
