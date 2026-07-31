@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 
 import { SubscriptionActions } from "@/features/subscriptions/components/subscription-actions";
+import { SubscriptionPaymentHistory } from "@/features/subscriptions/components/subscription-payment-history";
+import type { AccountWithBalance } from "@/features/accounts/types/account";
 import type {
     SubscriptionListItem,
 } from "@/features/subscriptions/types/subscription";
@@ -30,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 type SubscriptionCardProps = {
     subscription: SubscriptionListItem;
+    accounts: AccountWithBalance[];
 };
 
 function formatMoney(
@@ -55,6 +58,7 @@ function formatDate(date: string): string {
 
 export function SubscriptionCard({
     subscription,
+    accounts,
 }: SubscriptionCardProps) {
     const amount =
         Number(subscription.amount);
@@ -414,6 +418,13 @@ export function SubscriptionCard({
                                 {subscription.notes}
                             </p>
                         ) : null}
+
+                        <SubscriptionPaymentHistory
+                            payments={[...(subscription.subscription_payments ?? [])].sort((a, b) => b.paid_at.localeCompare(a.paid_at))}
+                            subscriptionName={subscription.name}
+                            currency={subscription.currency}
+                            accounts={accounts}
+                        />
                     </div>
 
                     <div className="shrink-0 lg:w-72">
@@ -432,6 +443,11 @@ export function SubscriptionCard({
                                 subscription.category_id &&
                                 subscription.next_payment_date
                             )}
+                            subscriptionName={subscription.name}
+                            expectedAmount={amount}
+                            currency={subscription.currency}
+                            defaultAccountId={subscription.account_id}
+                            accounts={accounts}
                         />
                     </div>
                 </div>

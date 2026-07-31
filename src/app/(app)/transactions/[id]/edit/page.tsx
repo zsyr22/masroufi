@@ -14,7 +14,10 @@ import {
     type TransactionFormInitialValues,
 } from "@/features/transactions/components/add-transaction-form";
 import { getCurrentUserCategories } from "@/features/transactions/services/category-service";
-import { getCurrentUserTransactionById } from "@/features/transactions/services/transaction-service";
+import {
+    getCurrentUserTransactionById,
+    getTransactionSource,
+} from "@/features/transactions/services/transaction-service";
 
 type EditTransactionPageProps = {
     params: Promise<{
@@ -29,12 +32,14 @@ export default async function EditTransactionPage({
 
     const [
         transaction,
+        source,
         accounts,
         categories,
         people,
         personEntry,
     ] = await Promise.all([
         getCurrentUserTransactionById(id),
+        getTransactionSource(id),
         getCurrentUserAccounts(),
         getCurrentUserCategories(),
         getCurrentUserActivePeople(),
@@ -43,6 +48,10 @@ export default async function EditTransactionPage({
 
     if (!transaction) {
         notFound();
+    }
+
+    if (source) {
+        redirect(source.href);
     }
 
     if (accounts.length === 0) {

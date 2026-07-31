@@ -514,3 +514,88 @@ export async function getCurrentUserTransactionById(
 
     return data;
 }
+
+export type TransactionSource =
+    | { type: "purchase"; id: string; href: string }
+    | { type: "bill"; id: string; href: string }
+    | { type: "subscription"; id: string; href: string }
+    | null;
+
+export async function getTransactionSource(
+    transactionId: string
+): Promise<TransactionSource> {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return null;
+    }
+
+    const [purchaseResult, billPaymentResult, subscriptionPaymentResult, transactionResult] =
+        await Promise.all([
+            supabase
+                .from("purchases")
+                .select("id")
+                .eq("transaction_id", transactionId)
+                .eq("user_id", user.id)
+                .maybeSingle(),
+            supabase
+                .from("bill_payments")
+                .select("bill_id")
+                .eq("transaction_id", transactionId)
+                .eq("user_id", user.id)
+                .maybeSingle(),
+            supabase
+                .from("subscription_payments")
+                .select("id, subscription_id")
+                .eq("transaction_id", transactionId)
+                .eq("user_id", user.id)
+                .maybeSingle(),
+            supabase
+                .from("transactions")
+                .select("subscription_id")
+                .eq("id", transactionId)
+                .eq("user_id", user.id)
+                .maybeSingle(),
+        ]);
+
+    if (purchaseResult.data) {
+        return {
+            type: "purchase",
+            id: purchaseResult.data.id,
+            href: `/purchases/${purchaseResult.data.id}`,
+        };
+    }
+
+    if (billPaymentResult.data) {
+        return {
+            type: "bill",
+            id: billPaymentResult.data.bill_id,
+            href: "/bills",
+        };
+    }
+
+    if (subscriptionPaymentResult.data) {
+        return {
+            type: "subscription",
+            id: subscriptionPaymentResult.data.subscription_id,
+            href: `/subscriptions?payment=${subscriptionPaymentResult.data.id}`,
+        };
+    }
+
+    const subscriptionId = transactionResult.data?.subscription_id;
+
+    if (subscriptionId) {
+        return {
+            type: "subscription",
+            id: subscriptionId,
+            href: "/subscriptions",
+        };
+    }
+
+    return null;
+}

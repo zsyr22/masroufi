@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
     Banknote,
     Landmark,
@@ -66,7 +68,9 @@ export function AccountCard({
 
                     <div className="min-w-0 space-y-1">
                         <CardTitle className="truncate text-base">
-                            {account.name}
+                            <Link href={`/accounts/${account.id}`} className="hover:underline">
+                                {account.name}
+                            </Link>
                         </CardTitle>
 
                         <p className="text-xs text-muted-foreground">
@@ -106,9 +110,18 @@ export function AccountCard({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-                    <EditAccountDialog
-                        account={account}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            href={`/accounts/${account.id}`}
+                            className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                            View details
+                        </Link>
+
+                        <EditAccountDialog
+                            account={account}
+                        />
+                    </div>
 
                     <AccountDangerActions
                         accountId={account.id}

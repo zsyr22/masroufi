@@ -1,3 +1,28 @@
 import { z } from "zod";
-export const billSchema=z.object({name:z.string().trim().min(1).max(100),provider:z.string().trim().max(100).optional(),categoryId:z.string().uuid(),accountId:z.string().uuid().optional(),frequency:z.enum(["monthly","quarterly","yearly"]),dueDay:z.coerce.number().int().min(1).max(31).optional(),expectedAmount:z.coerce.number().min(0).optional(),currency:z.enum(["AED","USD"])});
-export const payBillSchema=z.object({billId:z.string().uuid(),accountId:z.string().uuid(),amount:z.coerce.number().positive(),paidAt:z.string().date(),billingMonth:z.string().date(),notes:z.string().trim().max(300).optional()});
+
+export const billSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  provider: z.string().trim().max(100).optional(),
+  categoryId: z.string().uuid(),
+  accountId: z.string().uuid().optional(),
+  frequency: z.enum(["monthly", "quarterly", "yearly"]),
+  dueDay: z.coerce.number().int().min(1).max(31).optional(),
+  expectedAmount: z.coerce.number().min(0).optional(),
+  currency: z.enum(["AED", "USD"]),
+});
+
+export const payBillSchema = z.object({
+  billId: z.string().uuid(),
+  accountId: z.string().uuid(),
+  amount: z.coerce.number().positive(),
+  paidAt: z.string().date(),
+  notes: z.string().trim().max(300).optional(),
+});
+
+export const updateBillPaymentSchema = z.object({
+  paymentId: z.string().uuid(),
+  accountId: z.string().uuid(),
+  amount: z.coerce.number().positive(),
+  paidAt: z.string().date(),
+  notes: z.string().trim().max(300).optional(),
+});

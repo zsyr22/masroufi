@@ -32,6 +32,22 @@ export async function getCurrentUserSubscriptions(): Promise<
             categories (
                 id,
                 name
+            ),
+            subscription_payments (
+                id,
+                subscription_id,
+                transaction_id,
+                amount,
+                paid_at,
+                notes,
+                created_at,
+                transaction:transactions (
+                    id,
+                    account_id,
+                    account:accounts (
+                        name
+                    )
+                )
             )
         `)
         .eq("user_id", user.id)
@@ -92,6 +108,22 @@ export async function getCurrentUserSubscriptionById(
             categories (
                 id,
                 name
+            ),
+            subscription_payments (
+                id,
+                subscription_id,
+                transaction_id,
+                amount,
+                paid_at,
+                notes,
+                created_at,
+                transaction:transactions (
+                    id,
+                    account_id,
+                    account:accounts (
+                        name
+                    )
+                )
             )
         `)
         .eq("id", subscriptionId)
@@ -143,6 +175,22 @@ export async function getCurrentUserUpcomingSubscriptions(
             categories (
                 id,
                 name
+            ),
+            subscription_payments (
+                id,
+                subscription_id,
+                transaction_id,
+                amount,
+                paid_at,
+                notes,
+                created_at,
+                transaction:transactions (
+                    id,
+                    account_id,
+                    account:accounts (
+                        name
+                    )
+                )
             )
         `)
         .eq("user_id", user.id)

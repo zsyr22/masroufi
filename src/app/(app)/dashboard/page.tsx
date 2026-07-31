@@ -5,14 +5,17 @@ import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUserAccounts } from "@/features/accounts/services/account-service";
 import { calculateAccountSummary, formatMoney } from "@/features/accounts/utils/account-summary";
-import { getBills } from "@/features/bills/services/bill-service";
+import { getDashboardBillsData } from "@/features/bills/services/bill-service";
 import { DashboardBills } from "@/features/dashboard/components/dashboard-bills";
 import { DashboardSubscriptions } from "@/features/dashboard/components/dashboard-subscriptions";
 import { QuickActions } from "@/features/dashboard/components/quick-actions";
 import { DashboardPeopleBalances } from "@/features/people/components/dashboard-people-balances";
 import { getCurrentUserPeopleBalances } from "@/features/people/services/people-service";
 import { getCurrentUserPurchases } from "@/features/purchases/services/purchase-service";
-import { calculateCategoryBreakdown, calculateReportsSummary, getCurrentMonthTransactions } from "@/features/reports/utils/report-utils";
+import {
+  calculateCategoryBreakdown,
+  calculateReportsSummary,
+} from "@/features/reports/utils/report-utils";
 import { getCurrentUserSubscriptions } from "@/features/subscriptions/services/subscription-service";
 import { getCurrentUserTransactions } from "@/features/transactions/services/transaction-service";
 import { formatTransactionDate } from "@/features/transactions/utils/transaction-summary";
@@ -20,12 +23,12 @@ import { getTransactionDisplayTitle } from "@/features/transactions/utils/transa
 import { cn } from "@/lib/utils";
 
 export default async function DashboardPage() {
-  const [accounts, transactionResult, people, subscriptions, bills, purchases] = await Promise.all([
+  const [accounts, transactionResult, people, subscriptions, dashboardBills, purchases] = await Promise.all([
     getCurrentUserAccounts(),
     getCurrentUserTransactions({ pageSize: 100 }),
     getCurrentUserPeopleBalances(),
     getCurrentUserSubscriptions(),
-    getBills(),
+    getDashboardBillsData(),
     getCurrentUserPurchases(),
   ]);
 
@@ -81,7 +84,7 @@ export default async function DashboardPage() {
             {recentTransactions.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center text-center"><ReceiptText className="size-5 text-muted-foreground" /><p className="mt-3 text-sm text-muted-foreground">Your latest activity will appear here.</p></div> : <div className="divide-y divide-border">{recentTransactions.map((transaction) => { const income = transaction.type === "income"; return <div key={transaction.id} className="flex items-center justify-between gap-4 rounded-xl px-3 py-3.5 hover:bg-muted/35"><div className="flex min-w-0 items-center gap-3"><div className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", income ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500")}>{income ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}</div><div className="min-w-0"><p className="truncate text-sm font-medium">{getTransactionDisplayTitle(transaction)}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{transaction.categories?.name ?? "Uncategorized"} · {transaction.accounts?.name ?? "No account"} · {formatTransactionDate(transaction.transaction_date)}</p></div></div><p className={cn("shrink-0 text-sm font-semibold", income ? "text-emerald-500" : "text-foreground")}>{income ? "+" : "-"}{formatMoney(Number(transaction.amount), transaction.currency)}</p></div>; })}</div>}
           </CardContent>
         </Card>
-        <DashboardBills bills={bills} />
+        <DashboardBills data={dashboardBills} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2"><DashboardPeopleBalances people={people} /><DashboardSubscriptions subscriptions={subscriptions} /></section>

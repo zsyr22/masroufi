@@ -6,17 +6,17 @@ import { redirect } from "next/navigation";
 import {
     changeSubscriptionStatusSchema,
     createSubscriptionSchema,
-    deleteSubscriptionSchema,
-    recordSubscriptionPaymentSchema,
+    subscriptionPaymentSchema,
+    updateSubscriptionPaymentSchema,
     updateSubscriptionSchema,
 } from "@/features/subscriptions/schemas/subscription-schema";
+
 import type {
     SubscriptionBillingCycle,
     SubscriptionDurationType,
 } from "@/features/subscriptions/types/subscription";
 import {
     calculateContractEndDate,
-    getNextSubscriptionPaymentDate,
 } from "@/features/subscriptions/utils/subscription-utils";
 import { createClient } from "@/lib/supabase/server";
 
@@ -519,468 +519,142 @@ export async function deleteSubscription(
     _previousState: SubscriptionActionState,
     formData: FormData
 ): Promise<SubscriptionActionState> {
-    const parsed =
-        deleteSubscriptionSchema.safeParse({
-            subscriptionId:
-                getFormString(
-                    formData,
-                    "subscriptionId"
-                ),
+    const subscriptionId = getFormString(formData, "subscriptionId");
+    if (!subscriptionId) return { success: false, message: "Invalid subscription." };
 
-            deletePaymentHistory:
-                getFormString(
-                    formData,
-                    "deletePaymentHistory"
-                ),
-        });
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, message: "You must be logged in." };
 
-    if (!parsed.success) {
-        return {
-            success: false,
-            message:
-                "Invalid subscription.",
-        };
-    }
+    const { count, error: countError } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("subscription_id", subscriptionId)
+        .eq("user_id", user.id);
 
-    const supabase =
-        await createClient();
+    if (countError) return { success: false, message: "Could not check subscription history." };
 
-    const {
-        data: { user },
-        error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-        return {
-            success: false,
-            message:
-                "You must be logged in.",
-        };
-    }
-
-    const {
-        subscriptionId,
-        deletePaymentHistory,
-    } = parsed.data;
-
-    const {
-        data: subscription,
-        error: subscriptionError,
-    } = await supabase
-        .from("subscriptions")
-        .select("id, name")
-        .eq("id", subscriptionId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-    if (
-        subscriptionError ||
-        !subscription
-    ) {
-        console.error(
-            "Load subscription before delete error:",
-            subscriptionError
-        );
-
-        return {
-            success: false,
-            message:
-                "Subscription not found.",
-        };
-    }
-
-    if (deletePaymentHistory) {
-        const {
-            error: transactionsError,
-        } = await supabase
-            .from("transactions")
-            .delete()
-            .eq(
-                "subscription_id",
-                subscriptionId
-            )
-            .eq("user_id", user.id);
-
-        if (transactionsError) {
-            console.error(
-                "Delete subscription transactions error:",
-                {
-                    message:
-                        transactionsError.message,
-                    details:
-                        transactionsError.details,
-                    hint:
-                        transactionsError.hint,
-                    code:
-                        transactionsError.code,
-                }
-            );
-
-            return {
-                success: false,
-                message:
-                    "Could not delete the subscription payment history.",
-            };
-        }
-    }
-
-    const { error: deleteError } =
-        await supabase
+    if ((count ?? 0) > 0) {
+        const { error } = await supabase
             .from("subscriptions")
-            .delete()
+            .update({ status: "cancelled" })
             .eq("id", subscriptionId)
             .eq("user_id", user.id);
-
-    if (deleteError) {
-        console.error(
-            "Delete subscription error:",
-            {
-                message:
-                    deleteError.message,
-                details:
-                    deleteError.details,
-                hint:
-                    deleteError.hint,
-                code:
-                    deleteError.code,
-            }
-        );
-
-        return {
-            success: false,
-            message:
-                "Could not delete the subscription.",
-        };
+        if (error) return { success: false, message: "Could not archive the subscription." };
+        revalidatePath("/subscriptions"); revalidatePath("/dashboard");
+        return { success: true, message: "Subscription archived. Payment history was preserved." };
     }
 
-    revalidatePath("/subscriptions");
-    revalidatePath("/transactions");
-    revalidatePath("/accounts");
-    revalidatePath("/reports");
-    revalidatePath("/dashboard");
+    const { error } = await supabase
+        .from("subscriptions")
+        .delete()
+        .eq("id", subscriptionId)
+        .eq("user_id", user.id);
+    if (error) return { success: false, message: error.message };
 
-    return {
-        success: true,
-        message: deletePaymentHistory
-            ? "Subscription and payment history deleted."
-            : "Subscription deleted. Payment history was preserved.",
-    };
+    revalidatePath("/subscriptions"); revalidatePath("/dashboard");
+    return { success: true, message: "Unused subscription deleted." };
+}
+
+function revalidateSubscriptionRelatedPaths() {
+    const paths = [
+        "/subscriptions",
+        "/transactions",
+        "/accounts",
+        "/dashboard",
+        "/reports",
+    ];
+
+    for (const path of paths) {
+        revalidatePath(path);
+    }
 }
 
 export async function recordSubscriptionPayment(
     _previousState: SubscriptionActionState,
     formData: FormData
 ): Promise<SubscriptionActionState> {
-    const parsed =
-        recordSubscriptionPaymentSchema.safeParse({
-            subscriptionId:
-                getFormString(
-                    formData,
-                    "subscriptionId"
-                ),
-
-            paymentDate: getFormString(
-                formData,
-                "paymentDate"
-            ),
-        });
+    const parsed = subscriptionPaymentSchema.safeParse({
+        subscriptionId: getFormString(formData, "subscriptionId"),
+        accountId: getFormString(formData, "accountId"),
+        amount: getFormString(formData, "amount"),
+        paidAt: getFormString(formData, "paidAt"),
+        notes: getFormString(formData, "notes"),
+    });
 
     if (!parsed.success) {
         return {
             success: false,
-            message:
-                "Invalid payment information.",
+            message: "Review the payment details.",
+            fieldErrors: parsed.error.flatten().fieldErrors,
         };
     }
 
-    const supabase =
-        await createClient();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("record_subscription_payment", {
+        p_subscription_id: parsed.data.subscriptionId,
+        p_account_id: parsed.data.accountId,
+        p_amount: parsed.data.amount,
+        p_paid_at: parsed.data.paidAt,
+        p_notes: parsed.data.notes ?? "",
+    });
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    if (error) {
+        return { success: false, message: error.message };
+    }
 
-    if (!user) {
+    revalidateSubscriptionRelatedPaths();
+    return { success: true, message: "Subscription payment recorded." };
+}
+
+export async function updateSubscriptionPayment(
+    _previousState: SubscriptionActionState,
+    formData: FormData
+): Promise<SubscriptionActionState> {
+    const parsed = updateSubscriptionPaymentSchema.safeParse({
+        paymentId: getFormString(formData, "paymentId"),
+        accountId: getFormString(formData, "accountId"),
+        amount: getFormString(formData, "amount"),
+        paidAt: getFormString(formData, "paidAt"),
+        notes: getFormString(formData, "notes"),
+    });
+
+    if (!parsed.success) {
         return {
             success: false,
-            message:
-                "You must be logged in.",
+            message: "Review the payment details.",
+            fieldErrors: parsed.error.flatten().fieldErrors,
         };
     }
 
-    const {
-        data: subscription,
-        error: loadError,
-    } = await supabase
-        .from("subscriptions")
-        .select(`
-            id,
-            name,
-            provider,
-            amount,
-            currency,
-            billing_cycle,
-            duration_type,
-            duration_months,
-            end_date,
-            total_payments,
-            payments_made,
-            auto_renew,
-            account_id,
-            category_id,
-            status
-        `)
-        .eq(
-            "id",
-            parsed.data.subscriptionId
-        )
-        .eq("user_id", user.id)
-        .maybeSingle();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("update_subscription_payment", {
+        p_payment_id: parsed.data.paymentId,
+        p_account_id: parsed.data.accountId,
+        p_amount: parsed.data.amount,
+        p_paid_at: parsed.data.paidAt,
+        p_notes: parsed.data.notes ?? "",
+    });
 
-    if (
-        loadError ||
-        !subscription
-    ) {
-        console.error(
-            "Load subscription payment error:",
-            loadError
-        );
+    if (error) return { success: false, message: error.message };
 
-        return {
-            success: false,
-            message:
-                "Subscription not found.",
-        };
-    }
+    revalidateSubscriptionRelatedPaths();
+    return { success: true, message: "Subscription payment updated." };
+}
 
-    if (
-        subscription.status !==
-        "active"
-    ) {
-        return {
-            success: false,
-            message:
-                "Only active subscriptions can be paid.",
-        };
-    }
+export async function deleteSubscriptionPayment(
+    paymentId: string
+): Promise<SubscriptionActionState> {
+    const parsed = updateSubscriptionPaymentSchema.shape.paymentId.safeParse(paymentId);
+    if (!parsed.success) return { success: false, message: "Invalid subscription payment." };
 
-    if (!subscription.account_id) {
-        return {
-            success: false,
-            message:
-                "Select an account before recording this payment.",
-        };
-    }
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("delete_subscription_payment", {
+        p_payment_id: parsed.data,
+    });
 
-    if (
-        !subscription.category_id
-    ) {
-        return {
-            success: false,
-            message:
-                "Select a category before recording this payment.",
-        };
-    }
+    if (error) return { success: false, message: error.message };
 
-    const transactionNotes = [
-        `Subscription payment: ${subscription.name}`,
-        subscription.provider
-            ? `Provider: ${subscription.provider}`
-            : null,
-    ]
-        .filter(Boolean)
-        .join(" · ");
-
-    const { error: transactionError } =
-        await supabase
-            .from("transactions")
-            .insert({
-                user_id: user.id,
-
-                account_id:
-                    subscription.account_id,
-
-                category_id:
-                    subscription.category_id,
-
-                payee_id: null,
-
-                subscription_id:
-                    subscription.id,
-
-                type: "expense",
-
-                amount: Number(
-                    subscription.amount
-                ),
-
-                currency:
-                    subscription.currency,
-
-                transaction_date:
-                    parsed.data.paymentDate,
-
-                notes: transactionNotes,
-            });
-    if (transactionError) {
-        console.error(
-            "Create subscription transaction error:",
-            {
-                message:
-                    transactionError.message,
-                details:
-                    transactionError.details,
-                hint:
-                    transactionError.hint,
-                code:
-                    transactionError.code,
-            }
-        );
-
-        return {
-            success: false,
-            message:
-                "Could not create the payment transaction.",
-        };
-    }
-
-    const billingCycle =
-        subscription.billing_cycle as SubscriptionBillingCycle;
-
-    const durationType =
-        subscription.duration_type as SubscriptionDurationType;
-
-    const paymentsMade =
-        Number(
-            subscription.payments_made
-        ) + 1;
-
-    let nextPaymentDate =
-        getNextSubscriptionPaymentDate(
-            parsed.data.paymentDate,
-            billingCycle
-        );
-
-    let nextStatus:
-        | "active"
-        | "completed" = "active";
-
-    let nextEndDate =
-        subscription.end_date;
-
-    let nextPaymentsMade =
-        paymentsMade;
-
-    const reachedPaymentCount =
-        durationType ===
-        "payment_count" &&
-        subscription.total_payments !==
-        null &&
-        paymentsMade >=
-        Number(
-            subscription.total_payments
-        );
-
-    const passedContractEnd =
-        durationType ===
-        "fixed_period" &&
-        subscription.end_date !== null &&
-        nextPaymentDate !== null &&
-        nextPaymentDate >
-        subscription.end_date;
-
-    const isOneTime =
-        billingCycle === "one_time";
-
-    const contractFinished =
-        isOneTime ||
-        reachedPaymentCount ||
-        passedContractEnd;
-
-    if (contractFinished) {
-        if (
-            subscription.auto_renew &&
-            durationType ===
-            "fixed_period" &&
-            subscription.duration_months
-        ) {
-            const renewalStart =
-                nextPaymentDate ??
-                parsed.data.paymentDate;
-
-            nextEndDate =
-                calculateContractEndDate(
-                    renewalStart,
-                    Number(
-                        subscription.duration_months
-                    )
-                );
-
-            nextPaymentsMade = 0;
-            nextStatus = "active";
-        } else if (
-            subscription.auto_renew &&
-            durationType ===
-            "payment_count"
-        ) {
-            nextPaymentsMade = 0;
-            nextStatus = "active";
-        } else {
-            nextPaymentDate = null;
-            nextStatus = "completed";
-        }
-    }
-
-    const { error: updateError } =
-        await supabase
-            .from("subscriptions")
-            .update({
-                last_paid_at:
-                    parsed.data.paymentDate,
-
-                next_payment_date:
-                    nextPaymentDate,
-
-                payments_made:
-                    nextPaymentsMade,
-
-                end_date: nextEndDate,
-
-                status: nextStatus,
-            })
-            .eq(
-                "id",
-                subscription.id
-            )
-            .eq("user_id", user.id);
-
-    if (updateError) {
-        console.error(
-            "Update subscription after payment error:",
-            updateError
-        );
-
-        return {
-            success: false,
-            message:
-                "Payment was recorded, but the subscription could not be updated.",
-        };
-    }
-
-    revalidatePath(
-        "/subscriptions"
-    );
-    revalidatePath(
-        "/transactions"
-    );
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
-
-    return {
-        success: true,
-        message:
-            nextStatus === "completed"
-                ? "Final payment recorded. Subscription completed."
-                : "Payment recorded and next payment scheduled.",
-    };
+    revalidateSubscriptionRelatedPaths();
+    return { success: true, message: "Subscription payment deleted." };
 }

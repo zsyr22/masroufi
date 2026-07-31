@@ -14,6 +14,7 @@ import {
 
 import { SubscriptionCard } from "@/features/subscriptions/components/subscription-card";
 import { getCurrentUserSubscriptions } from "@/features/subscriptions/services/subscription-service";
+import { getCurrentUserAccounts } from "@/features/accounts/services/account-service";
 import {
   calculateMonthlyEquivalent,
   calculateYearlyEquivalent,
@@ -31,8 +32,10 @@ function formatMoney(
 }
 
 export default async function SubscriptionsPage() {
-  const subscriptions =
-    await getCurrentUserSubscriptions();
+  const [subscriptions, accounts] = await Promise.all([
+    getCurrentUserSubscriptions(),
+    getCurrentUserAccounts(),
+  ]);
 
   const activeSubscriptions =
     subscriptions.filter(
@@ -201,9 +204,8 @@ export default async function SubscriptionsPage() {
             (subscription) => (
               <SubscriptionCard
                 key={subscription.id}
-                subscription={
-                  subscription
-                }
+                subscription={subscription}
+                accounts={accounts}
               />
             )
           )}

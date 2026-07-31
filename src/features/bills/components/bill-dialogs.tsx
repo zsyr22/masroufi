@@ -21,7 +21,6 @@ import type { Bill } from "@/features/bills/types/bill";
 
 const initialState: BillState = {};
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-const currentBillingMonth = () => `${today().slice(0, 7)}-01`;
 
 export function AddBillDialog({ accounts, categories }: { accounts: AccountWithBalance[]; categories: Category[] }) {
   const [open, setOpen] = useState(false);
@@ -163,7 +162,6 @@ function RecordBillPaymentContent({ bills, accounts, onDone }: { bills: Bill[]; 
         </div>
       ) : (
         <form action={action} className="space-y-4">
-          <input type="hidden" name="billingMonth" value={currentBillingMonth()} />
           <div className="space-y-2">
             <Label>Fixed bill</Label>
             <Select name="billId" value={selectedBillId} onValueChange={(value) => value && changeBill(value)}>

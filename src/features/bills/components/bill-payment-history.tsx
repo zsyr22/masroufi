@@ -1,6 +1,8 @@
 import { CalendarDays, ReceiptText, WalletCards } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BillPaymentHistoryItem } from "@/features/bills/types/bill";
+import type { AccountWithBalance } from "@/features/accounts/types/account";
+import { DeleteBillPaymentButton, EditBillPaymentDialog } from "@/features/bills/components/bill-payment-actions";
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2 }).format(amount);
@@ -10,7 +12,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
-export function BillPaymentHistory({ payments }: { payments: BillPaymentHistoryItem[] }) {
+export function BillPaymentHistory({ payments, accounts }: { payments: BillPaymentHistoryItem[]; accounts: AccountWithBalance[] }) {
   return (
     <Card className="overflow-hidden border-sky-500/20 bg-gradient-to-br from-sky-500/7 via-card to-transparent">
       <CardHeader>
@@ -39,7 +41,11 @@ export function BillPaymentHistory({ payments }: { payments: BillPaymentHistoryI
                     </div>
                   </div>
                 </div>
-                <p className="shrink-0 text-base font-semibold text-sky-600 dark:text-sky-400">{formatMoney(Number(payment.amount), payment.bill?.currency ?? "AED")}</p>
+                <div className="flex shrink-0 items-center gap-1">
+                  <p className="mr-2 text-base font-semibold text-sky-600 dark:text-sky-400">{formatMoney(Number(payment.amount), payment.bill?.currency ?? "AED")}</p>
+                  <EditBillPaymentDialog payment={payment} accounts={accounts} />
+                  <DeleteBillPaymentButton payment={payment} />
+                </div>
               </div>
             ))}
           </div>

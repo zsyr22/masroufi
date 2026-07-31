@@ -72,9 +72,17 @@ export function AddPersonEntryDialog({
         );
 
     useEffect(() => {
-        if (state.success) {
-            setOpen(false);
+        if (!state.success) {
+            return;
         }
+
+        const timeoutId = window.setTimeout(() => {
+            setOpen(false);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
     }, [state.success]);
 
     return (

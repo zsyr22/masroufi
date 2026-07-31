@@ -86,4 +86,25 @@ export type SubscriptionListItem =
     Subscription & {
         accounts: SubscriptionAccount | null;
         categories: SubscriptionCategory | null;
+        subscription_payments?: SubscriptionPayment[];
     };
+export type SubscriptionPayment = {
+    id: string;
+    subscription_id: string;
+    transaction_id: string;
+    amount: number;
+    paid_at: string;
+    notes: string | null;
+    created_at: string;
+    transaction: {
+        id: string;
+        account_id: string;
+        account: {
+            name: string;
+        } | null;
+    } | null;
+};
+
+export type SubscriptionWithPayments = SubscriptionListItem & {
+    subscription_payments: SubscriptionPayment[];
+};

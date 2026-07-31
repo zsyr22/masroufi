@@ -185,3 +185,16 @@ export const recordSubscriptionPaymentSchema =
             .string()
             .date("Enter a valid payment date."),
     });
+export const subscriptionPaymentSchema = z.object({
+    subscriptionId: z.string().uuid("Invalid subscription."),
+    accountId: z.string().uuid("Select an account."),
+    amount: z.coerce.number().positive("Amount must be greater than zero.").finite(),
+    paidAt: z.string().date("Enter a valid payment date."),
+    notes: z.string().trim().max(500).optional().transform((value) => value || null),
+});
+
+export const updateSubscriptionPaymentSchema = subscriptionPaymentSchema.omit({
+    subscriptionId: true,
+}).extend({
+    paymentId: z.string().uuid("Invalid subscription payment."),
+});

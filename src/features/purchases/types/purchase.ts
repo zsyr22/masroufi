@@ -44,13 +44,34 @@ export type PurchaseListItem = {
 
 export type PurchaseDetails = Omit<PurchaseListItem, "purchase_items"> & {
   transaction_id: string;
+  store_id: string;
+  account_id: string;
+  category_id: string;
+  channel: "online" | "physical";
+  branch_name: string | null;
   categories: { name: string } | null;
   purchase_items: Array<{
     id: string;
+    category_id: string | null;
     name: string;
     quantity: number;
     unit: PurchaseUnit;
     unit_price: number;
     line_total: number;
   }>;
+};
+
+export type PurchaseFormInitialData = {
+  storeId: string;
+  channel: "online" | "physical";
+  branchName: string;
+  accountId: string;
+  categoryId: string;
+  purchaseDate: string;
+  tax: number;
+  discount: number;
+  deliveryFee: number;
+  total: number;
+  notes: string;
+  items: PurchaseItemInput[];
 };

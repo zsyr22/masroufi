@@ -6,12 +6,11 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-    CheckCircle2,
     Loader2,
     Pause,
     Pencil,
     Play,
-    Trash2,
+    Archive,
 } from "lucide-react";
 
 import {
@@ -22,12 +21,11 @@ import {
 import {
     changeSubscriptionStatus,
     deleteSubscription,
-    recordSubscriptionPayment,
     type SubscriptionActionState,
 } from "@/features/subscriptions/actions/subscription-actions";
-import type {
-    SubscriptionStatus,
-} from "@/features/subscriptions/types/subscription";
+import type { SubscriptionStatus } from "@/features/subscriptions/types/subscription";
+import type { AccountWithBalance } from "@/features/accounts/types/account";
+import { RecordSubscriptionPaymentDialog } from "@/features/subscriptions/components/subscription-payment-actions";
 import { cn } from "@/lib/utils";
 
 type SubscriptionActionsProps = {
@@ -35,6 +33,11 @@ type SubscriptionActionsProps = {
     status: SubscriptionStatus;
     nextPaymentDate: string | null;
     canRecordPayment: boolean;
+    subscriptionName: string;
+    expectedAmount: number;
+    currency: string;
+    defaultAccountId: string | null;
+    accounts: AccountWithBalance[];
 };
 
 const initialState: SubscriptionActionState = {};
@@ -44,6 +47,11 @@ export function SubscriptionActions({
     status,
     nextPaymentDate,
     canRecordPayment,
+    subscriptionName,
+    expectedAmount,
+    currency,
+    defaultAccountId,
+    accounts,
 }: SubscriptionActionsProps) {
     const [
         statusState,
@@ -55,67 +63,35 @@ export function SubscriptionActions({
     );
 
     const [
-        paymentState,
-        paymentAction,
-        isPaymentPending,
-    ] = useActionState(
-        recordSubscriptionPayment,
-        initialState
-    );
-
-    const [
         deleteState,
         deleteAction,
-        isDeletePending,
+        isArchivePending,
     ] = useActionState(
         deleteSubscription,
         initialState
     );
 
-    const [showDelete, setShowDelete] =
+    const [showArchive, setShowArchive] =
         useState(false);
 
     const isPending =
         isStatusPending ||
-        isPaymentPending ||
-        isDeletePending;
+        isArchivePending;
 
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
                 {status === "active" ? (
                     <>
-                        <form action={paymentAction}>
-                            <input
-                                type="hidden"
-                                name="subscriptionId"
-                                value={subscriptionId}
-                            />
-
-                            <input
-                                type="hidden"
-                                name="paymentDate"
-                                value={nextPaymentDate ?? ""}
-                            />
-
-                            <Button
-                                type="submit"
-                                size="sm"
-                                disabled={
-                                    isPending ||
-                                    !canRecordPayment ||
-                                    !nextPaymentDate
-                                }
-                            >
-                                {isPaymentPending ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <CheckCircle2 className="size-4" />
-                                )}
-
-                                Mark as paid
-                            </Button>
-                        </form>
+                        <RecordSubscriptionPaymentDialog
+                            subscriptionId={subscriptionId}
+                            subscriptionName={subscriptionName}
+                            expectedAmount={expectedAmount}
+                            currency={currency}
+                            defaultAccountId={defaultAccountId}
+                            accounts={accounts}
+                            disabled={isPending || !canRecordPayment || !nextPaymentDate}
+                        />
 
                         <form action={statusAction}>
                             <input
@@ -141,7 +117,7 @@ export function SubscriptionActions({
                             </Button>
                         </form>
                     </>
-                ) : (
+                ) : status === "paused" || status === "cancelled" ? (
                     <form action={statusAction}>
                         <input
                             type="hidden"
@@ -170,7 +146,7 @@ export function SubscriptionActions({
                             Activate
                         </Button>
                     </form>
-                )}
+                ) : null}
 
                 <Link
                     href={`/subscriptions/${subscriptionId}/edit`}
@@ -187,31 +163,30 @@ export function SubscriptionActions({
                     Edit
                 </Link>
 
-                {!showDelete ? (
+                {!showArchive ? (
                     <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         disabled={isPending}
                         onClick={() =>
-                            setShowDelete(true)
+                            setShowArchive(true)
                         }
                     >
-                        <Trash2 className="size-4" />
-                        Delete
+                        <Archive className="size-4" />
+                        Archive
                     </Button>
                 ) : null}
             </div>
 
-            {showDelete ? (
+            {showArchive ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                     <p className="text-sm font-medium">
-                        Delete this subscription?
+                        Archive this subscription?
                     </p>
 
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Existing payment transactions will
-                        not be deleted.
+                        Existing payment history will always be preserved. Unused subscriptions can be deleted permanently.
                     </p>
 
                     <div className="mt-3 flex gap-2">
@@ -228,13 +203,13 @@ export function SubscriptionActions({
                                 variant="destructive"
                                 disabled={isPending}
                             >
-                                {isDeletePending ? (
+                                {isArchivePending ? (
                                     <Loader2 className="size-4 animate-spin" />
                                 ) : (
-                                    <Trash2 className="size-4" />
+                                    <Archive className="size-4" />
                                 )}
 
-                                Confirm delete
+                                Confirm archive
                             </Button>
                         </form>
 
@@ -244,26 +219,13 @@ export function SubscriptionActions({
                             variant="outline"
                             disabled={isPending}
                             onClick={() =>
-                                setShowDelete(false)
+                                setShowArchive(false)
                             }
                         >
                             Cancel
                         </Button>
                     </div>
                 </div>
-            ) : null}
-
-            {paymentState.message ? (
-                <p
-                    className={cn(
-                        "text-xs",
-                        paymentState.success
-                            ? "text-primary"
-                            : "text-destructive"
-                    )}
-                >
-                    {paymentState.message}
-                </p>
             ) : null}
 
             {statusState.message ? (

@@ -168,6 +168,54 @@ function revalidateTransactionPages(
     }
 }
 
+
+async function getLinkedTransactionSource(
+    supabase: Awaited<ReturnType<typeof createClient>>,
+    userId: string,
+    transactionId: string
+): Promise<"purchase" | "bill" | "subscription" | null> {
+    const [purchaseResult, billPaymentResult, transactionResult] =
+        await Promise.all([
+            supabase
+                .from("purchases")
+                .select("id")
+                .eq("transaction_id", transactionId)
+                .eq("user_id", userId)
+                .maybeSingle(),
+            supabase
+                .from("bill_payments")
+                .select("id")
+                .eq("transaction_id", transactionId)
+                .eq("user_id", userId)
+                .maybeSingle(),
+            supabase
+                .from("transactions")
+                .select("subscription_id")
+                .eq("id", transactionId)
+                .eq("user_id", userId)
+                .maybeSingle(),
+        ]);
+
+    if (purchaseResult.data) return "purchase";
+    if (billPaymentResult.data) return "bill";
+    if (transactionResult.data?.subscription_id) return "subscription";
+
+    return null;
+}
+
+function getLinkedTransactionMessage(
+    source: "purchase" | "bill" | "subscription"
+): string {
+    const label =
+        source === "purchase"
+            ? "purchase"
+            : source === "bill"
+              ? "bill payment"
+              : "subscription";
+
+    return `This transaction is managed by its ${label}. Open the original record to make changes.`;
+}
+
 export async function createTransaction(
     _previousState: CreateTransactionState,
     formData: FormData
@@ -478,6 +526,39 @@ export async function deleteTransactions(
         };
     }
 
+    const [linkedPurchases, linkedBillPayments, linkedSubscriptions] =
+        await Promise.all([
+            supabase
+                .from("purchases")
+                .select("transaction_id")
+                .eq("user_id", user.id)
+                .in("transaction_id", ownedTransactionIds),
+            supabase
+                .from("bill_payments")
+                .select("transaction_id")
+                .eq("user_id", user.id)
+                .in("transaction_id", ownedTransactionIds),
+            supabase
+                .from("transactions")
+                .select("id")
+                .eq("user_id", user.id)
+                .in("id", ownedTransactionIds)
+                .not("subscription_id", "is", null),
+        ]);
+
+    const linkedIds = new Set([
+        ...(linkedPurchases.data ?? []).map((row) => row.transaction_id),
+        ...(linkedBillPayments.data ?? []).map((row) => row.transaction_id),
+        ...(linkedSubscriptions.data ?? []).map((row) => row.id),
+    ]);
+
+    if (linkedIds.size > 0) {
+        return {
+            message:
+                "One or more selected transactions are managed by a purchase, bill payment, or subscription. Delete them from their original record instead.",
+        };
+    }
+
     const {
         data: linkedEntries,
         error: linkedEntriesError,
@@ -601,6 +682,19 @@ export async function deleteTransaction(
         };
     }
 
+    const linkedSource =
+        await getLinkedTransactionSource(
+            supabase,
+            user.id,
+            transactionId
+        );
+
+    if (linkedSource) {
+        return {
+            message: getLinkedTransactionMessage(linkedSource),
+        };
+    }
+
     const { error } = await supabase
         .from("transactions")
         .delete()
@@ -716,6 +810,19 @@ export async function updateTransaction(
         return {
             message:
                 "The transaction could not be found.",
+        };
+    }
+
+    const linkedSource =
+        await getLinkedTransactionSource(
+            supabase,
+            user.id,
+            transactionId
+        );
+
+    if (linkedSource) {
+        return {
+            message: getLinkedTransactionMessage(linkedSource),
         };
     }
 

@@ -33,10 +33,7 @@ export function DeleteTransferButton({
 
     const [state, action, isPending] =
         useActionState(
-            async (
-                _previousState:
-                    TransferActionState
-            ) => {
+            async () => {
                 return deleteTransfer(
                     transferId
                 );

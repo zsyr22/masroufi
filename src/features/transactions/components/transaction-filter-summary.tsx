@@ -66,7 +66,7 @@ export function TransactionFilterSummary({
                 "bg-destructive/10 text-destructive",
         },
         {
-            label: "Available balance",
+            label: "Net cash flow",
             value: netAmount,
             icon: Scale,
             className:

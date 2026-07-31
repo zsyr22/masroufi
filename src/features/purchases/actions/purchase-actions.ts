@@ -10,14 +10,10 @@ export type PurchaseActionState = {
   fieldErrors?: Record<string, string[]>;
 };
 
-export async function createPurchase(_state: PurchaseActionState, formData: FormData): Promise<PurchaseActionState> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { message: "Your session expired. Please sign in again." };
-
+function parsePurchaseForm(formData: FormData) {
   let items: unknown = [];
   try { items = JSON.parse(String(formData.get("items") ?? "[]")); }
-  catch { return { message: "Purchase items could not be read." }; }
+  catch { return { success: false as const, state: { message: "Purchase items could not be read." } }; }
 
   const parsed = createPurchaseSchema.safeParse({
     storeId: formData.get("storeId"),
@@ -33,9 +29,38 @@ export async function createPurchase(_state: PurchaseActionState, formData: Form
     notes: formData.get("notes") || undefined,
     items,
   });
-  if (!parsed.success) return { message: "Please review the highlighted fields.", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
 
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      state: {
+        message: "Please review the highlighted fields.",
+        fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      },
+    };
+  }
+
+  return { success: true as const, data: parsed.data };
+}
+
+function revalidatePurchasePaths(purchaseId?: string) {
+  revalidatePath("/purchases");
+  if (purchaseId) revalidatePath(`/purchases/${purchaseId}`);
+  revalidatePath("/transactions");
+  revalidatePath("/accounts");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+}
+
+export async function createPurchase(_state: PurchaseActionState, formData: FormData): Promise<PurchaseActionState> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { message: "Your session expired. Please sign in again." };
+
+  const parsed = parsePurchaseForm(formData);
+  if (!parsed.success) return parsed.state;
   const input = parsed.data;
+
   const { data, error } = await supabase.rpc("create_purchase", {
     p_store_id: input.storeId,
     p_channel: input.channel,
@@ -56,12 +81,42 @@ export async function createPurchase(_state: PurchaseActionState, formData: Form
     return { message: error?.message ?? "The purchase could not be saved." };
   }
 
-  revalidatePath("/purchases");
-  revalidatePath("/transactions");
-  revalidatePath("/accounts");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports");
+  revalidatePurchasePaths(data);
   redirect(`/purchases/${data}`);
+}
+
+export async function updatePurchase(purchaseId: string, _state: PurchaseActionState, formData: FormData): Promise<PurchaseActionState> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { message: "Your session expired. Please sign in again." };
+
+  const parsed = parsePurchaseForm(formData);
+  if (!parsed.success) return parsed.state;
+  const input = parsed.data;
+
+  const { error } = await supabase.rpc("update_purchase", {
+    p_purchase_id: purchaseId,
+    p_store_id: input.storeId,
+    p_channel: input.channel,
+    p_branch_name: input.branchName ?? "",
+    p_account_id: input.accountId,
+    p_category_id: input.categoryId,
+    p_purchase_date: input.purchaseDate,
+    p_tax: input.tax,
+    p_discount: input.discount,
+    p_delivery_fee: input.deliveryFee,
+    p_total: input.total,
+    p_notes: input.notes ?? "",
+    p_items: input.items,
+  });
+
+  if (error) {
+    console.error("Update purchase error:", error);
+    return { message: error.message ?? "The purchase could not be updated." };
+  }
+
+  revalidatePurchasePaths(purchaseId);
+  redirect(`/purchases/${purchaseId}`);
 }
 
 export async function deletePurchase(purchaseId: string): Promise<{ success: boolean; message?: string }> {
@@ -71,10 +126,6 @@ export async function deletePurchase(purchaseId: string): Promise<{ success: boo
   if (!purchase) return { success: false, message: "Purchase not found." };
   const { error } = await supabase.from("transactions").delete().eq("id", purchase.transaction_id);
   if (error) return { success: false, message: "The purchase could not be deleted." };
-  revalidatePath("/purchases");
-  revalidatePath("/transactions");
-  revalidatePath("/accounts");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports");
+  revalidatePurchasePaths();
   return { success: true };
 }

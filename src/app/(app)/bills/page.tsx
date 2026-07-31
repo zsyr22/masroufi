@@ -2,15 +2,17 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUserAccounts } from "@/features/accounts/services/account-service";
 import { getCurrentUserCategories } from "@/features/transactions/services/category-service";
-import { getBills, getBillPaymentHistory } from "@/features/bills/services/bill-service";
+import { getArchivedBills, getBills, getBillPaymentHistory } from "@/features/bills/services/bill-service";
 import { AddBillDialog, RecordBillPaymentDialog } from "@/features/bills/components/bill-dialogs";
 import { BillsList } from "@/features/bills/components/bills-list";
 import { BillPaymentHistory } from "@/features/bills/components/bill-payment-history";
+import { ArchivedBills } from "@/features/bills/components/archived-bills";
 import { ReceiptText, Sparkles } from "lucide-react";
 
 export default async function BillsPage() {
-  const [bills, payments, accounts, categories] = await Promise.all([
+  const [bills, archivedBills, payments, accounts, categories] = await Promise.all([
     getBills(),
+    getArchivedBills(),
     getBillPaymentHistory(),
     getCurrentUserAccounts(),
     getCurrentUserCategories(),
@@ -45,7 +47,9 @@ export default async function BillsPage() {
         <BillsList bills={bills} accounts={accounts} />
       </section>
 
-      <BillPaymentHistory payments={payments} />
+      <ArchivedBills bills={archivedBills} />
+
+      <BillPaymentHistory payments={payments} accounts={accounts} />
     </div>
   );
 }

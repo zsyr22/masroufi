@@ -30,7 +30,7 @@ export async function getCurrentUserPurchases(): Promise<PurchaseListItem[]> {
 export async function getCurrentUserPurchaseById(id: string): Promise<PurchaseDetails | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("purchases")
-    .select("id,transaction_id,purchase_date,subtotal,tax,discount,delivery_fee,total,currency,notes,stores(name,branch),accounts(name),categories(name),purchase_items(id,name,quantity,unit,unit_price,line_total)")
+    .select("id,transaction_id,store_id,account_id,category_id,channel,branch_name,purchase_date,subtotal,tax,discount,delivery_fee,total,currency,notes,stores(name,branch),accounts(name),categories(name),purchase_items(id,category_id,name,quantity,unit,unit_price,line_total)")
     .eq("id", id).order("created_at", { referencedTable: "purchase_items", ascending: true }).maybeSingle();
   if (error) { console.error("Load purchase error:", error); return null; }
   return data as unknown as PurchaseDetails | null;
