@@ -186,7 +186,7 @@ export function TransactionHistory({
 
     return (
         <>
-            <Card className="overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/7 via-card to-transparent">
+            <Card className="overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/9 via-card to-transparent shadow-[0_24px_80px_rgba(16,185,129,0.07)]">
                 <CardHeader className="gap-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>

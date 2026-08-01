@@ -60,7 +60,9 @@ export default async function AccountDetailsPage({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="relative overflow-hidden rounded-[28px] border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-card to-violet-500/8 p-6 shadow-[0_24px_90px_rgba(14,165,233,0.08)] sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-4">
           <Link
             href="/accounts"
@@ -85,28 +87,29 @@ export default async function AccountDetailsPage({
         </div>
 
         <EditAccountDialog account={account} />
+        </div>
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="border-sky-500/15 bg-gradient-to-br from-sky-500/8 via-card to-card">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Opening balance</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-semibold">{formatMoney(Number(account.opening_balance), account.currency)}</p></CardContent>
         </Card>
-        <Card>
+        <Card className="border-emerald-500/15 bg-gradient-to-br from-emerald-500/8 via-card to-card">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Money in</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-semibold text-emerald-500">+{formatMoney(details.moneyIn, account.currency)}</p></CardContent>
         </Card>
-        <Card>
+        <Card className="border-rose-500/15 bg-gradient-to-br from-rose-500/8 via-card to-card">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Money out</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-semibold text-red-500">-{formatMoney(details.moneyOut, account.currency)}</p></CardContent>
         </Card>
-        <Card className="border-primary/25 bg-primary/5">
+        <Card className="border-violet-500/25 bg-gradient-to-br from-violet-500/12 via-card to-card shadow-[0_18px_60px_rgba(139,92,246,0.07)]">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Current balance</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-semibold">{formatMoney(Number(account.current_balance), account.currency)}</p></CardContent>
         </Card>
       </section>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border-violet-500/15 bg-gradient-to-br from-violet-500/7 via-card to-transparent">
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Scale className="size-5" /></div>
@@ -144,7 +147,7 @@ export default async function AccountDetailsPage({
           <p className="mt-1 text-sm text-muted-foreground">Transactions, transfers, and the account starting balance in one ledger.</p>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden border-sky-500/15 bg-gradient-to-br from-sky-500/6 via-card to-transparent">
           <CardContent className="p-0">
             {details.activities.map((activity, index) => (
               <div key={activity.id} className={`flex items-center justify-between gap-4 p-4 sm:p-5 ${index > 0 ? "border-t" : ""}`}>

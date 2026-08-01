@@ -227,3 +227,114 @@ export async function createPersonEntry(
         success: true,
     };
 }
+export type PersonMutationState = CreatePersonState;
+
+export async function updatePerson(
+    _: PersonMutationState,
+    formData: FormData
+): Promise<PersonMutationState> {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { message: "Session expired." };
+    }
+
+    const personId = String(formData.get("personId") ?? "");
+    const parsed = createPersonSchema.safeParse({
+        name: formData.get("name"),
+        phone: formData.get("phone") || undefined,
+        notes: formData.get("notes") || undefined,
+    });
+
+    if (!personId) {
+        return { message: "Person could not be identified." };
+    }
+
+    if (!parsed.success) {
+        return {
+            message: "Please review the highlighted fields.",
+            fieldErrors: parsed.error.flatten().fieldErrors,
+        };
+    }
+
+    const { error } = await supabase
+        .from("people")
+        .update({
+            name: parsed.data.name,
+            phone: parsed.data.phone?.trim() || null,
+            notes: parsed.data.notes?.trim() || null,
+        })
+        .eq("id", personId)
+        .eq("user_id", user.id);
+
+    if (error) {
+        if (error.code === "23505") {
+            return {
+                message: "An active person with this name already exists.",
+                fieldErrors: { name: ["This name is already in use."] },
+            };
+        }
+
+        console.error("Update person error:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+        });
+
+        return { message: "Unable to update person." };
+    }
+
+    revalidatePath("/people");
+    revalidatePath(`/people/${personId}`);
+    revalidatePath("/dashboard");
+
+    return { success: true };
+}
+
+export async function deletePerson(
+    _: PersonMutationState,
+    formData: FormData
+): Promise<PersonMutationState> {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { message: "Session expired." };
+    }
+
+    const personId = String(formData.get("personId") ?? "");
+
+    if (!personId) {
+        return { message: "Person could not be identified." };
+    }
+
+    const { error } = await supabase
+        .from("people")
+        .delete()
+        .eq("id", personId)
+        .eq("user_id", user.id);
+
+    if (error) {
+        console.error("Delete person error:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+        });
+
+        return { message: "Unable to delete person." };
+    }
+
+    revalidatePath("/people");
+    revalidatePath("/dashboard");
+
+    return { success: true };
+}

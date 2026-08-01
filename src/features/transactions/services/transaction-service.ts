@@ -519,6 +519,7 @@ export type TransactionSource =
     | { type: "purchase"; id: string; href: string }
     | { type: "bill"; id: string; href: string }
     | { type: "subscription"; id: string; href: string }
+    | { type: "fuel"; id: string; href: string }
     | null;
 
 export async function getTransactionSource(
@@ -535,8 +536,13 @@ export async function getTransactionSource(
         return null;
     }
 
-    const [purchaseResult, billPaymentResult, subscriptionPaymentResult, transactionResult] =
-        await Promise.all([
+    const [
+        purchaseResult,
+        billPaymentResult,
+        subscriptionPaymentResult,
+        fuelEntryResult,
+        transactionResult,
+    ] = await Promise.all([
             supabase
                 .from("purchases")
                 .select("id")
@@ -552,6 +558,12 @@ export async function getTransactionSource(
             supabase
                 .from("subscription_payments")
                 .select("id, subscription_id")
+                .eq("transaction_id", transactionId)
+                .eq("user_id", user.id)
+                .maybeSingle(),
+            supabase
+                .from("fuel_entries")
+                .select("id")
                 .eq("transaction_id", transactionId)
                 .eq("user_id", user.id)
                 .maybeSingle(),
@@ -584,6 +596,14 @@ export async function getTransactionSource(
             type: "subscription",
             id: subscriptionPaymentResult.data.subscription_id,
             href: `/subscriptions?payment=${subscriptionPaymentResult.data.id}`,
+        };
+    }
+
+    if (fuelEntryResult.data) {
+        return {
+            type: "fuel",
+            id: fuelEntryResult.data.id,
+            href: `/fuel/${fuelEntryResult.data.id}/edit`,
         };
     }
 

@@ -205,11 +205,11 @@ export function TransferForm({
     }
 
     return (
-        <Card className="border-cyan-500/20 bg-gradient-to-br from-cyan-500/7 via-card to-transparent">
-            <CardContent className="p-6">
+        <Card className="border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-card to-transparent shadow-[0_24px_80px_rgba(6,182,212,0.08)]">
+            <CardContent className="p-5 sm:p-7">
                 <form
                     action={formAction}
-                    className="space-y-6"
+                    className="space-y-5"
                     aria-busy={isPending}
                 >
                     {initialValues?.id ? (

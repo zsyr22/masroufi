@@ -1,8 +1,7 @@
 import Link from "next/link";
-import {
-  Plus,
-  Repeat2,
-} from "lucide-react";
+import { CalendarClock, CircleDollarSign, Plus, Repeat2 } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 
 import {
   buttonVariants,
@@ -81,122 +80,37 @@ export default async function SubscriptionsPage() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-primary">
-            Recurring payments
-          </p>
+      <PageHeader
+        title="Subscriptions"
+        description="Track recurring services, contract value and every payment in one calm portfolio."
+        action={
+          <Link href="/subscriptions/new" className={buttonVariants()}>
+            <Plus className="size-4" />
+            Add subscription
+          </Link>
+        }
+      />
 
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Subscriptions
-          </h1>
-
-          <p className="mt-2 text-sm text-muted-foreground">
-            Track recurring services and
-            record their payments.
-          </p>
-        </div>
-
-        <Link
-          href="/subscriptions/new"
-          className={buttonVariants()}
-        >
-          <Plus className="size-4" />
-          Add subscription
-        </Link>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/6 via-card to-transparent">
-          <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">
-              Active subscriptions
-            </p>
-
-            <p className="mt-2 text-2xl font-semibold">
-              {activeSubscriptions.length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/6 via-card to-transparent">
-          <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">
-              Monthly equivalent
-            </p>
-
-            <div className="mt-2 space-y-1">
-              {Object.entries(
-                totals
-              ).length > 0 ? (
-                Object.entries(
-                  totals
-                ).map(
-                  ([
-                    currency,
-                    total,
-                  ]) => (
-                    <p
-                      key={
-                        currency
-                      }
-                      className="text-lg font-semibold"
-                    >
-                      {formatMoney(
-                        total.monthly,
-                        currency
-                      )}
-                    </p>
-                  )
-                )
-              ) : (
-                <p className="text-2xl font-semibold">
-                  —
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/6 via-card to-transparent">
-          <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">
-              Yearly equivalent
-            </p>
-
-            <div className="mt-2 space-y-1">
-              {Object.entries(
-                totals
-              ).length > 0 ? (
-                Object.entries(
-                  totals
-                ).map(
-                  ([
-                    currency,
-                    total,
-                  ]) => (
-                    <p
-                      key={
-                        currency
-                      }
-                      className="text-lg font-semibold"
-                    >
-                      {formatMoney(
-                        total.yearly,
-                        currency
-                      )}
-                    </p>
-                  )
-                )
-              ) : (
-                <p className="text-2xl font-semibold">
-                  —
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          title="Active subscriptions"
+          value={String(activeSubscriptions.length)}
+          description={`${subscriptions.length} total subscriptions`}
+          icon={Repeat2}
+        />
+        <StatCard
+          title="Monthly equivalent"
+          value={Object.entries(totals).length > 0 ? Object.entries(totals).map(([currency, total]) => formatMoney(total.monthly, currency)).join(" · ") : "—"}
+          description="Recurring monthly commitment"
+          icon={CalendarClock}
+        />
+        <StatCard
+          title="Yearly equivalent"
+          value={Object.entries(totals).length > 0 ? Object.entries(totals).map(([currency, total]) => formatMoney(total.yearly, currency)).join(" · ") : "—"}
+          description="Estimated annual cost"
+          icon={CircleDollarSign}
+        />
+      </section>
 
       {subscriptions.length > 0 ? (
         <div className="space-y-4">

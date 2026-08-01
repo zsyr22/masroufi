@@ -47,7 +47,7 @@ function formatEntryDate(date: string, createdAt: string) {
 export function PersonLedger({ entries }: Props) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed px-6 py-12 text-center">
+      <div className="rounded-2xl border border-dashed border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/6 via-card to-card px-6 py-12 text-center">
         <p className="font-medium">No balance activity yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Expenses, repayments, and adjustments involving this person will appear here.
@@ -65,10 +65,10 @@ export function PersonLedger({ entries }: Props) {
         return (
           <div
             key={entry.id}
-            className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-4 rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/6 via-card to-card p-5 transition duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/30 hover:shadow-xl sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex min-w-0 items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-fuchsia-500/12 text-fuchsia-300">
                 <Icon className="size-4" />
               </div>
               <div className="min-w-0">

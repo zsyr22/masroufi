@@ -41,7 +41,7 @@ export default async function SettingsPage() {
 
       <div className="grid gap-5 xl:grid-cols-[1fr_1.35fr]">
         <div className="space-y-5">
-          <Card>
+          <Card className="border-violet-500/15 bg-gradient-to-br from-violet-500/8 via-card to-transparent">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-sky-500/15 bg-gradient-to-br from-sky-500/8 via-card to-transparent">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -91,7 +91,7 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-emerald-500/15 bg-gradient-to-br from-emerald-500/8 via-card to-transparent">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -117,7 +117,7 @@ export default async function SettingsPage() {
         </div>
 
         <div className="space-y-5">
-          <Card>
+          <Card className="border-rose-500/15 bg-gradient-to-br from-rose-500/8 via-card to-transparent">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -134,7 +134,7 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-amber-500/15 bg-gradient-to-br from-amber-500/8 via-card to-transparent">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -147,15 +147,15 @@ export default async function SettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="rounded-2xl border border-white/8 bg-background/45 p-4">
                 <p className="text-xs text-muted-foreground">Version</p>
                 <p className="mt-1 font-semibold">0.1.0</p>
               </div>
-              <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="rounded-2xl border border-white/8 bg-background/45 p-4">
                 <p className="text-xs text-muted-foreground">Currencies</p>
                 <p className="mt-1 font-semibold">AED & USD</p>
               </div>
-              <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="rounded-2xl border border-white/8 bg-background/45 p-4">
                 <p className="text-xs text-muted-foreground">Storage</p>
                 <p className="mt-1 font-semibold">Supabase</p>
               </div>

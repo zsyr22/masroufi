@@ -42,12 +42,19 @@ export function CategoryList({
                 </p>
             </div>
 
-            <Card className="overflow-hidden border-orange-500/15 bg-gradient-to-br from-orange-500/6 via-card to-transparent">
+            <Card
+                className={cn(
+                    "overflow-hidden",
+                    isIncome
+                        ? "border-emerald-500/15 bg-gradient-to-br from-emerald-500/8 via-card to-transparent"
+                        : "border-rose-500/15 bg-gradient-to-br from-rose-500/8 via-card to-transparent"
+                )}
+            >
                 <CardContent className="divide-y divide-border p-0">
                     {categories.map((category) => (
                         <div
                             key={category.id}
-                            className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-muted/30"
+                            className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.025]"
                         >
                             <div className="flex min-w-0 items-center gap-3">
                                 <div

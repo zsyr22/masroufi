@@ -70,7 +70,7 @@ export function AddPersonDialog() {
                 }
             />
 
-            <DialogContent>
+            <DialogContent className="border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/8 via-background to-background">
                 <DialogHeader>
                     <DialogTitle>
                         Add person

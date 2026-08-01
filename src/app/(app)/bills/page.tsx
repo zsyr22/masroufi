@@ -26,7 +26,7 @@ export default async function BillsPage() {
         action={<AddBillDialog accounts={accounts} categories={categories} />}
       />
 
-      <Card className="overflow-hidden border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-card to-transparent">
+      <Card className="overflow-hidden border-sky-500/18 bg-gradient-to-br from-sky-500/9 via-card to-violet-500/4">
         <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-500"><ReceiptText className="size-5" /></div>
