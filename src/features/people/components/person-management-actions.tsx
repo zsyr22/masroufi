@@ -32,13 +32,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   deletePerson,
   updatePerson,
-  type DeletePersonState,
-  type UpdatePersonState,
+  type PersonMutationState,
 } from "@/features/people/actions/people-actions";
 import type { Person } from "@/features/people/types/person";
 
-const updateInitialState: UpdatePersonState = {};
-const deleteInitialState: DeletePersonState = {};
+const updateInitialState: PersonMutationState = {};
+const deleteInitialState: PersonMutationState = {};
 
 export function PersonManagementActions({
   person,
