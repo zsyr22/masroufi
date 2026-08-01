@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
-import { Loader2, MailCheck } from "lucide-react";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,32 +12,32 @@ import { createClient } from "@/lib/supabase/client";
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string>();
+  const [error, setError] = useState<string>();
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setMessage(null);
-    setError(null);
+    setMessage(undefined);
+    setError(undefined);
 
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/reset-password`;
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      email.trim(),
-      { redirectTo }
-    );
+    const { error: resetError } =
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo,
+      });
 
     setPending(false);
 
     if (resetError) {
-      setError(resetError.message || "The recovery email could not be sent.");
+      setError(resetError.message);
       return;
     }
 
     setMessage(
-      "Check your inbox. We sent you a secure link to choose a new password."
+      "A password recovery link has been sent. Open the newest email from Supabase."
     );
   }
 
@@ -48,22 +48,18 @@ export function ForgotPasswordForm() {
         <Input
           id="recovery-email"
           type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
           placeholder="name@example.com"
-          disabled={pending || Boolean(message)}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
           required
         />
       </div>
 
       {message ? (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-400">
-          <div className="flex gap-3">
-            <MailCheck className="mt-0.5 size-5 shrink-0" />
-            <p>{message}</p>
-          </div>
-        </div>
+        <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
+          {message}
+        </p>
       ) : null}
 
       {error ? (
@@ -72,17 +68,13 @@ export function ForgotPasswordForm() {
         </p>
       ) : null}
 
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={pending || Boolean(message)}
-      >
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? <Loader2 className="size-4 animate-spin" /> : null}
         {pending ? "Sending..." : "Send recovery link"}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Remembered your password?{" "}
+        Remembered it?{" "}
         <Link href="/login" className="font-medium text-primary hover:underline">
           Back to sign in
         </Link>

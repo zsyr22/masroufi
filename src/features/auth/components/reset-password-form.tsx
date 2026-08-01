@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
@@ -10,58 +10,65 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
+type RecoveryState = "checking" | "ready" | "invalid" | "success";
+
 export function ResetPasswordForm() {
   const router = useRouter();
+  const [recoveryState, setRecoveryState] =
+    useState<RecoveryState>("checking");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [checkingSession, setCheckingSession] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
   const [pending, setPending] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string>();
 
   useEffect(() => {
-    const supabase = createClient();
     let cancelled = false;
 
-    async function initializeRecoverySession() {
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-      const query = new URLSearchParams(window.location.search);
+    async function initializeRecovery() {
+      const supabase = createClient();
+      const hash = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
-      const code = query.get("code");
+      const type = hash.get("type");
 
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
+      if (type === "recovery" && accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
+
         window.history.replaceState({}, "", "/reset-password");
-      } else if (code) {
-        await supabase.auth.exchangeCodeForSession(code);
-        window.history.replaceState({}, "", "/reset-password");
+
+        if (cancelled) return;
+
+        if (sessionError) {
+          setRecoveryState("invalid");
+          return;
+        }
+
+        setRecoveryState("ready");
+        return;
       }
 
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (!cancelled) {
-        setHasSession(Boolean(session));
-        setCheckingSession(false);
-      }
+      if (cancelled) return;
+
+      setRecoveryState(session ? "ready" : "invalid");
     }
 
-    void initializeRecoverySession();
+    void initializeRecovery();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setError(undefined);
 
     if (password.length < 8) {
       setError("Password must contain at least 8 characters.");
@@ -74,55 +81,55 @@ export function ResetPasswordForm() {
     }
 
     setPending(true);
+
     const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+    });
+
     setPending(false);
 
     if (updateError) {
-      setError(updateError.message || "The password could not be updated.");
+      setError(updateError.message);
       return;
     }
 
-    setSuccess(true);
+    setRecoveryState("success");
+
     window.setTimeout(() => {
       router.replace("/dashboard");
       router.refresh();
     }, 1200);
   }
 
-  if (checkingSession) {
+  if (recoveryState === "checking") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border bg-card/60 p-4 text-sm text-muted-foreground">
+      <div className="flex items-center gap-3 rounded-xl border p-4 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        Verifying your recovery link...
+        Checking your recovery link...
       </div>
     );
   }
 
-  if (!hasSession) {
+  if (recoveryState === "invalid") {
     return (
-      <div className="space-y-5">
-        <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-400">
-          This recovery link is invalid or has expired. Request a fresh link and
-          open the newest email only.
+      <div className="space-y-4">
+        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          This recovery link is invalid or expired. Request a new one.
         </p>
-        <Button render={<Link href="/forgot-password" />} className="w-full">
-          Request a new recovery link
+
+        <Button className="w-full" render={<Link href="/forgot-password" />}>
+          Request a new link
         </Button>
       </div>
     );
   }
 
-  if (success) {
+  if (recoveryState === "success") {
     return (
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-emerald-400">
-        <div className="flex items-center gap-3">
-          <CheckCircle2 className="size-5" />
-          <p className="font-medium">Password updated successfully.</p>
-        </div>
-        <p className="mt-2 text-sm text-emerald-400/80">
-          Opening your dashboard...
-        </p>
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-500">
+        <CheckCircle2 className="size-5" />
+        Password updated. Opening your dashboard...
       </div>
     );
   }
@@ -134,27 +141,25 @@ export function ResetPasswordForm() {
         <Input
           id="new-password"
           type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
           autoComplete="new-password"
           placeholder="At least 8 characters"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
           minLength={8}
-          disabled={pending}
           required
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirm-new-password">Confirm new password</Label>
+        <Label htmlFor="confirm-new-password">Confirm password</Label>
         <Input
           id="confirm-new-password"
           type="password"
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
           autoComplete="new-password"
           placeholder="Repeat your new password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
           minLength={8}
-          disabled={pending}
           required
         />
       </div>

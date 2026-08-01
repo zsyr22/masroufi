@@ -7,9 +7,8 @@ export default function ForgotPasswordPage() {
         <h1 className="text-3xl font-semibold tracking-tight">
           Reset your password
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          Enter the email connected to Masroufi and we will send you a recovery
-          link.
+        <p className="text-sm text-muted-foreground">
+          Enter your email and Masroufi will send you a secure recovery link.
         </p>
       </div>
 

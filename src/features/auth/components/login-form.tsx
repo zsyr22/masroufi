@@ -35,7 +35,16 @@ export function LoginForm() {
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="password">Password</Label>
+
+                    <Link
+                        href="/forgot-password"
+                        className="text-xs font-medium text-primary hover:underline"
+                    >
+                        Forgot password?
+                    </Link>
+                </div>
 
                 <Input
                     id="password"
@@ -52,15 +61,6 @@ export function LoginForm() {
                     {state.error}
                 </p>
             ) : null}
-
-            <div className="flex justify-end">
-                <Link
-                    href="/forgot-password"
-                    className="text-sm font-medium text-primary hover:underline"
-                >
-                    Forgot password?
-                </Link>
-            </div>
 
             <Button type="submit" className="w-full" disabled={isPending}>
                 {isPending ? "Signing in..." : "Sign in"}
