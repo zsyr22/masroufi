@@ -6,8 +6,14 @@ export type PurchaseUnit = (typeof purchaseUnits)[number];
 export type PurchaseItemInput = {
   clientId: string;
   name: string;
+  /** Number of purchased units/packages. */
   quantity: number;
+  /** How the item was sold: piece, pack, box, kg... */
   unit: PurchaseUnit;
+  /** Optional content size of one purchased unit, e.g. 250 g or 330 ml. */
+  packageSize: number | null;
+  packageUnit: PurchaseUnit | null;
+  /** Price of one purchased unit/package, or price per measured unit for loose goods. */
   unitPrice: number;
   categoryId: string;
 };
@@ -56,6 +62,8 @@ export type PurchaseDetails = Omit<PurchaseListItem, "purchase_items"> & {
     name: string;
     quantity: number;
     unit: PurchaseUnit;
+    package_size: number | null;
+    package_unit: PurchaseUnit | null;
     unit_price: number;
     line_total: number;
   }>;

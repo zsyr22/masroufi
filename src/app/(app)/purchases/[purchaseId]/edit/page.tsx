@@ -36,6 +36,8 @@ export default async function EditPurchasePage({ params }: { params: Promise<{ p
       name: item.name,
       quantity: Number(item.quantity),
       unit: item.unit,
+      packageSize: item.package_size === null ? null : Number(item.package_size),
+      packageUnit: item.package_unit,
       unitPrice: Number(item.unit_price),
       categoryId: item.category_id ?? "",
     })),

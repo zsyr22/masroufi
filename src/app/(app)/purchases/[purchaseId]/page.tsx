@@ -36,7 +36,13 @@ export default async function PurchasePage({ params }: { params: Promise<{ purch
         <CardContent className="space-y-3">
           {purchase.purchase_items.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-4 rounded-xl bg-muted/40 p-3">
-              <div><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{Number(item.quantity)} {item.unit} × {money(item.unit_price, purchase.currency)}</p></div>
+              <div>
+                <p className="font-medium">{item.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {Number(item.quantity)} {item.unit} × {money(item.unit_price, purchase.currency)}
+                  {item.package_size && item.package_unit ? ` · ${Number(item.package_size)} ${item.package_unit} each` : ""}
+                </p>
+              </div>
               <strong>{money(item.line_total, purchase.currency)}</strong>
             </div>
           ))}
