@@ -12,8 +12,86 @@ export type PurchaseActionState = {
 
 function parsePurchaseForm(formData: FormData) {
   let items: unknown = [];
-  try { items = JSON.parse(String(formData.get("items") ?? "[]")); }
-  catch { return { success: false as const, state: { message: "Purchase items could not be read." } }; }
+
+  try {
+    const rawItems = JSON.parse(
+      String(formData.get("items") ?? "[]")
+    );
+
+    if (!Array.isArray(rawItems)) {
+      return {
+        success: false as const,
+        state: {
+          message: "Purchase items have an invalid format.",
+        },
+      };
+    }
+
+    items = rawItems.map((item) => {
+      if (!item || typeof item !== "object") {
+        return item;
+      }
+
+      const normalizedItem = {
+        ...item,
+      } as Record<string, unknown>;
+
+      const rawName =
+        typeof normalizedItem.name === "string"
+          ? normalizedItem.name.trim()
+          : "";
+
+      normalizedItem.name = rawName.slice(0, 140);
+
+      const rawPackageSize = normalizedItem.packageSize;
+      const rawPackageUnit = normalizedItem.packageUnit;
+
+      const numericPackageSize =
+        rawPackageSize === "" ||
+          rawPackageSize === null ||
+          rawPackageSize === undefined
+          ? null
+          : Number(rawPackageSize);
+
+      const normalizedPackageUnit =
+        typeof rawPackageUnit === "string"
+          ? rawPackageUnit.trim().toLowerCase()
+          : null;
+
+      const validPackageUnits = new Set([
+        "g",
+        "kg",
+        "ml",
+        "l",
+        "piece",
+        "pack",
+      ]);
+
+      const hasValidPackage =
+        numericPackageSize !== null &&
+        Number.isFinite(numericPackageSize) &&
+        numericPackageSize > 0 &&
+        normalizedPackageUnit !== null &&
+        validPackageUnits.has(normalizedPackageUnit);
+
+      if (hasValidPackage) {
+        normalizedItem.packageSize = numericPackageSize;
+        normalizedItem.packageUnit = normalizedPackageUnit;
+      } else {
+        normalizedItem.packageSize = null;
+        normalizedItem.packageUnit = null;
+      }
+
+      return normalizedItem;
+    });
+  } catch {
+    return {
+      success: false as const,
+      state: {
+        message: "Purchase items could not be read.",
+      },
+    };
+  }
 
   const parsed = createPurchaseSchema.safeParse({
     storeId: formData.get("storeId"),
@@ -31,18 +109,30 @@ function parsePurchaseForm(formData: FormData) {
   });
 
   if (!parsed.success) {
+    console.error(
+      "Purchase validation errors:",
+      JSON.stringify(parsed.error.issues, null, 2)
+    );
+
+    const firstError = parsed.error.issues[0];
+
     return {
       success: false as const,
       state: {
-        message: "Please review the highlighted fields.",
-        fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+        message: firstError
+          ? `${firstError.path.join(" → ")}: ${firstError.message}`
+          : "Please review the purchase fields.",
+        fieldErrors: parsed.error.flatten()
+          .fieldErrors as Record<string, string[]>,
       },
     };
   }
 
-  return { success: true as const, data: parsed.data };
+  return {
+    success: true as const,
+    data: parsed.data,
+  };
 }
-
 function revalidatePurchasePaths(purchaseId?: string) {
   revalidatePath("/purchases");
   if (purchaseId) revalidatePath(`/purchases/${purchaseId}`);
