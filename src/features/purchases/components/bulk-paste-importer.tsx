@@ -107,9 +107,7 @@ export function BulkPasteImporter({
             <DialogTitle>Import a long receipt</DialogTitle>
 
             <DialogDescription>
-              Copy the order text from Amazon, Carrefour, or another store and
-              paste it below. Masroufi will prepare the items for review before
-              saving.
+              Paste copied receipt text from Amazon or Nesto. Masroufi detects the store format automatically and prepares the items for review.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -126,7 +124,14 @@ export function BulkPasteImporter({
             <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-medium">Import preview</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">Import preview</p>
+                    {parsed.source !== "unknown" ? (
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                        {parsed.source === "amazon" ? "Amazon detected" : parsed.source === "nesto" ? "Nesto detected" : "Generic format"}
+                      </span>
+                    ) : null}
+                  </div>
 
                   <p className="text-xs text-muted-foreground">
                     {parsed.items.length} item
@@ -205,9 +210,7 @@ export function BulkPasteImporter({
             </div>
 
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Imported items are added to the purchase form first. You can
-              review names, quantities, prices, package sizes, and receipt
-              totals before saving.
+              Imported items are added to the purchase form first. Amazon and Nesto use separate parsers, so each format is handled independently. Review the result before saving.
             </p>
           </div>
         </div>
