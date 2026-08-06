@@ -49,9 +49,9 @@ export function PurchaseForm({ accounts, categories, stores, products, purchaseI
   const [accountId, setAccountId] = useState(initialData?.accountId ?? accounts[0]?.id ?? "");
   const [categoryId, setCategoryId] = useState(
     initialData?.categoryId
-      ?? expenseCategories.find((category) => /grocer|food|shopping/i.test(category.name))?.id
-      ?? expenseCategories[0]?.id
-      ?? "",
+    ?? expenseCategories.find((category) => /grocer|food|shopping/i.test(category.name))?.id
+    ?? expenseCategories[0]?.id
+    ?? "",
   );
   const [storeId, setStoreId] = useState(initialData?.storeId ?? stores[0]?.id ?? "");
   const selectedStore = stores.find((store) => store.id === storeId);
@@ -214,27 +214,54 @@ export function PurchaseForm({ accounts, categories, stores, products, purchaseI
           {entryMode === "quick" ? (
             <div className="mx-auto max-w-md space-y-3 rounded-xl border border-amber-500/15 bg-background/60 p-5">
               <Label htmlFor="quickReceiptTotal">Receipt total</Label>
+
               <div className="relative">
                 <Input
                   id="quickReceiptTotal"
+                  name="total"
                   type="number"
                   min="0.01"
                   step="0.01"
                   value={receiptTotal}
-                  onChange={(event) => setReceiptTotal(Number(event.target.value))}
+                  onChange={(event) =>
+                    setReceiptTotal(Number(event.target.value))
+                  }
                   className="h-12 pr-16 text-lg font-semibold"
                   placeholder="0.00"
+                  required
                 />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">{account?.currency ?? "AED"}</span>
+
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                  {account?.currency ?? "AED"}
+                </span>
               </div>
-              <p className="text-xs text-muted-foreground">You can open this purchase later, switch to Itemized, and add all products.</p>
+
+              <input type="hidden" name="tax" value="0" />
+              <input type="hidden" name="discount" value="0" />
+              <input type="hidden" name="deliveryFee" value="0" />
+
+              <p className="text-xs text-muted-foreground">
+                You can open this purchase later, switch to Itemized, and add all
+                products.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex justify-end">
-                <BulkPasteImporter products={products} currency={account?.currency ?? "AED"} onImportItems={importItems} onImportTotals={importTotals} />
+                <BulkPasteImporter
+                  products={products}
+                  currency={account?.currency ?? "AED"}
+                  onImportItems={importItems}
+                  onImportTotals={importTotals}
+                />
               </div>
-              <PurchaseItemsEditor items={items} products={products} currency={account?.currency ?? "AED"} onChange={setItems} />
+
+              <PurchaseItemsEditor
+                items={items}
+                products={products}
+                currency={account?.currency ?? "AED"}
+                onChange={setItems}
+              />
             </div>
           )}
         </CardContent>

@@ -146,7 +146,10 @@ export async function createPurchase(_state: PurchaseActionState, formData: Form
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { message: "Your session expired. Please sign in again." };
-
+  console.log("TOTAL =", formData.get("total"));
+  console.log("TAX =", formData.get("tax"));
+  console.log("DISCOUNT =", formData.get("discount"));
+  console.log("DELIVERY =", formData.get("deliveryFee"));
   const parsed = parsePurchaseForm(formData);
   if (!parsed.success) return parsed.state;
   const input = parsed.data;
