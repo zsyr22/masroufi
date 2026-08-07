@@ -4,7 +4,7 @@ import type {
   PurchaseUnit,
 } from "@/features/purchases/types/purchase";
 
-export type ReceiptSource = "amazon" | "nesto" | "generic" | "unknown";
+export type ReceiptSource = "amazon" | "nesto" | "carrefour" | "generic" | "unknown";
 
 export type ParsedReceipt = {
   source: ReceiptSource;
@@ -23,6 +23,8 @@ const asinPattern = /^B[A-Z0-9]{9}$/i;
 const barcodePattern = /^\d{11,20}$/;
 const arabicPattern = /[\u0600-\u06ff]/;
 const nestoQuantityPattern = /^Qty\s+(\d+(?:[.,]\d+)?)\s+(EA|KG|PAC|PACK|PCS?|BOX)\s*[×x]\s*(?:AED\s*)?(\d+(?:[.,]\d+)?)/i;
+const carrefourBarcodePattern = /^Barcode\s*:\s*([0-9]{8,20})$/i;
+const carrefourNumberRowPattern = /^\s*(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s*$/;
 
 function numberFrom(value: string | undefined): number | undefined {
   if (!value) return undefined;
@@ -372,8 +374,96 @@ function parseNestoBlocks(lines: string[], products: ProductSuggestion[]): Purch
   return items;
 }
 
+function sourceFromStoreName(storeName: string | undefined): ReceiptSource | null {
+  const normalized = storeName?.trim().toLocaleLowerCase() ?? "";
+  if (!normalized) return null;
+
+  if (/amazon/.test(normalized)) return "amazon";
+  if (/nesto/.test(normalized)) return "nesto";
+  if (/carrefour/.test(normalized)) return "carrefour";
+
+  return null;
+}
+
+function parseCarrefourBlocks(lines: string[], products: ProductSuggestion[]): PurchaseItemInput[] {
+  const items: PurchaseItemInput[] = [];
+
+  for (let barcodeIndex = 0; barcodeIndex < lines.length; barcodeIndex += 1) {
+    if (!carrefourBarcodePattern.test(lines[barcodeIndex])) continue;
+
+    let name: string | null = null;
+    for (let index = barcodeIndex - 1; index >= 0; index -= 1) {
+      const candidate = lines[index];
+      if (!candidate) continue;
+      if (arabicPattern.test(candidate)) continue;
+      if (carrefourBarcodePattern.test(candidate)) break;
+      if (carrefourNumberRowPattern.test(candidate)) break;
+      if (looksLikeSummary(candidate)) break;
+      if (!/[A-Za-z]/.test(candidate)) continue;
+
+      name = cleanProductName(candidate);
+      break;
+    }
+
+    if (!name) continue;
+
+    let values: RegExpMatchArray | null = null;
+    for (let index = barcodeIndex + 1; index < Math.min(lines.length, barcodeIndex + 5); index += 1) {
+      values = lines[index].match(carrefourNumberRowPattern);
+      if (values) break;
+      if (carrefourBarcodePattern.test(lines[index]) || looksLikeSummary(lines[index])) break;
+    }
+
+    if (!values) continue;
+
+    const receiptQuantity = numberFrom(values[1]);
+    const unitPriceInclVat = numberFrom(values[2]);
+    const totalInclVat = numberFrom(values[7]);
+    if (receiptQuantity === undefined || unitPriceInclVat === undefined || totalInclVat === undefined) continue;
+
+    const existing = productDefaults(name, products);
+    const packageFromName = extractPackageDetails(name);
+    const isWeightedItem = !Number.isInteger(receiptQuantity);
+
+    // Carrefour uses a fractional Qty for weighed produce (for example 1.944 kg).
+    // Masroufi keeps Qty as the number of purchased items, so loose weight is stored
+    // as package size instead: Qty 1, Package size 1944 g, Price each 9.51 AED.
+    const quantity = isWeightedItem ? 1 : receiptQuantity;
+    const packageDetails = isWeightedItem
+      ? {
+          packageSize: Math.round(receiptQuantity * 1000 * 1000) / 1000,
+          packageUnit: "g" as PurchaseUnit,
+        }
+      : packageFromName;
+
+    const unitPrice = isWeightedItem
+      ? totalInclVat
+      : Math.round((totalInclVat / Math.max(quantity, 1)) * 10000) / 10000;
+
+    items.push({
+      clientId: crypto.randomUUID(),
+      name,
+      quantity,
+      unit: existing?.default_unit ?? "piece",
+      packageSize: packageDetails.packageSize,
+      packageUnit: packageDetails.packageUnit,
+      unitPrice,
+      categoryId: existing?.default_category_id ?? "",
+    });
+  }
+
+  return items;
+}
+
 function detectSource(lines: string[]): ReceiptSource {
   const joined = lines.join("\n");
+
+  if (
+    /Total\s+Amount\s+Incl\.\s*VAT/i.test(joined)
+    || lines.some((line) => carrefourBarcodePattern.test(line))
+  ) {
+    return "carrefour";
+  }
 
   if (
     /NESTO\s+HYPERMARKET/i.test(joined)
@@ -424,14 +514,17 @@ function parseGeneric(lines: string[], products: ProductSuggestion[]): PurchaseI
   return items;
 }
 
-export function parseReceiptText(text: string, products: ProductSuggestion[]): ParsedReceipt {
+export function parseReceiptText(text: string, products: ProductSuggestion[], storeName?: string): ParsedReceipt {
   const lines = text
     .replace(/\u00a0/g, " ")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const source = detectSource(lines);
+  // Prefer the store selected in the purchase form. This keeps Amazon, Nesto and
+  // Carrefour parsing isolated from each other and prevents format collisions.
+  const selectedSource = sourceFromStoreName(storeName);
+  const source = selectedSource ?? detectSource(lines);
   const warnings: string[] = [];
   let items: PurchaseItemInput[] = [];
 
@@ -444,40 +537,50 @@ export function parseReceiptText(text: string, products: ProductSuggestion[]): P
     items = parseNestoBlocks(lines, products);
   }
 
+  if (!items.length && source === "carrefour") {
+    items = parseCarrefourBlocks(lines, products);
+  }
+
   if (!items.length && source === "amazon") {
     items = parseAmazonBlocks(lines, products);
   }
 
-  if (!items.length) {
+  if (!items.length && (source === "generic" || source === "unknown")) {
     items = parseGeneric(lines, products);
   }
 
   if (!items.length) {
-    warnings.push("No items were detected. Paste the full Amazon or Nesto receipt text, or use one item per line: Product | quantity | price");
+    warnings.push("No items were detected for the selected store format. Paste the full Amazon, Nesto or Carrefour receipt text, or use one item per line: Product | quantity | price");
   }
 
   if (source === "generic" && items.length) {
     warnings.push("This receipt format was parsed using the generic importer. Review the detected items before saving.");
   }
 
-  const discount = source === "nesto"
+  const discount = source === "nesto" || source === "carrefour"
     ? undefined
     : findSummaryAmount(lines, /(discount|offers?)/i);
 
   const deliveryLabelIndex = lines.findIndex((line) => /delivery/i.test(line));
-  const deliveryFee = source === "nesto"
+  const deliveryFee = source === "nesto" || source === "carrefour"
     ? undefined
     : deliveryLabelIndex >= 0 && /free/i.test(lines[deliveryLabelIndex + 1] ?? "")
       ? 0
       : findSummaryAmount(lines, /delivery/i);
 
-  const tax = source === "nesto"
-    ? findSummaryAmount(lines, /(VAT\/GST|VAT|GST)/i)
-    : findSummaryAmount(lines, /^(tax|vat)$/i);
+  // Carrefour item rows already use the VAT-inclusive total column. Setting tax to
+  // zero here prevents VAT from being added a second time by PurchaseTotalsCard.
+  const tax = source === "carrefour"
+    ? 0
+    : source === "nesto"
+      ? findSummaryAmount(lines, /(VAT\/GST|VAT|GST)/i)
+      : findSummaryAmount(lines, /^(tax|vat)$/i);
 
-  const total = source === "nesto"
-    ? findSummaryAmount(lines, /total\s*paid/i)
-    : findSummaryAmount(lines, /(you\s*pay|grand\s*total|order\s*total|amount\s*paid)/i);
+  const total = source === "carrefour"
+    ? findSummaryAmount(lines, /total\s+amount\s+incl\.\s*vat/i)
+    : source === "nesto"
+      ? findSummaryAmount(lines, /total\s*paid/i)
+      : findSummaryAmount(lines, /(you\s*pay|grand\s*total|order\s*total|amount\s*paid)/i);
 
   return { source, items, discount, deliveryFee, tax, total, warnings };
 }

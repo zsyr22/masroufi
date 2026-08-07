@@ -251,6 +251,7 @@ export function PurchaseForm({ accounts, categories, stores, products, purchaseI
                 <BulkPasteImporter
                   products={products}
                   currency={account?.currency ?? "AED"}
+                  storeName={selectedStore?.name}
                   onImportItems={importItems}
                   onImportTotals={importTotals}
                 />

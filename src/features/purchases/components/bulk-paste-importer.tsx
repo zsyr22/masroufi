@@ -34,6 +34,7 @@ You pay AED 25.49`;
 type Props = {
   products: ProductSuggestion[];
   currency: string;
+  storeName?: string;
   onImportItems: (items: PurchaseItemInput[]) => void;
   onImportTotals: (values: {
     tax?: number;
@@ -46,6 +47,7 @@ type Props = {
 export function BulkPasteImporter({
   products,
   currency,
+  storeName,
   onImportItems,
   onImportTotals,
 }: Props) {
@@ -53,8 +55,8 @@ export function BulkPasteImporter({
   const [text, setText] = useState("");
 
   const parsed = useMemo(
-    () => parseReceiptText(text, products),
-    [text, products]
+    () => parseReceiptText(text, products, storeName),
+    [text, products, storeName]
   );
 
   function handleOpenChange(nextOpen: boolean) {
@@ -107,7 +109,7 @@ export function BulkPasteImporter({
             <DialogTitle>Import a long receipt</DialogTitle>
 
             <DialogDescription>
-              Paste copied receipt text from Amazon or Nesto. Masroufi detects the store format automatically and prepares the items for review.
+              Paste the receipt text for the store selected above. Masroufi uses that store's dedicated importer so Amazon, Nesto and Carrefour rules never conflict.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -128,7 +130,13 @@ export function BulkPasteImporter({
                     <p className="font-medium">Import preview</p>
                     {parsed.source !== "unknown" ? (
                       <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                        {parsed.source === "amazon" ? "Amazon detected" : parsed.source === "nesto" ? "Nesto detected" : "Generic format"}
+                        {parsed.source === "amazon"
+                          ? "Amazon importer"
+                          : parsed.source === "nesto"
+                            ? "Nesto importer"
+                            : parsed.source === "carrefour"
+                              ? "Carrefour importer"
+                              : "Generic format"}
                       </span>
                     ) : null}
                   </div>
